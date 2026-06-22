@@ -7,6 +7,13 @@
 <meta name="theme-color" content="#0a0a0b" />
 <title>BIG</title>
 <style>
+  /* ------------------------------------------------------------------ *
+   *  Base palette (the "dark" default). Every built-in theme overrides
+   *  these custom properties via a [data-theme="…"] block that is
+   *  GENERATED AT RUNTIME from the data-driven THEMES registry in JS
+   *  (see <style id="theme-styles">). Keeping the default inline here
+   *  means the very first paint is already correct (no FOUC).
+   * ------------------------------------------------------------------ */
   :root {
     --bg: #0a0a0b;
     --ink: #fafafa;
@@ -19,59 +26,6 @@
     --field-focus: rgba(250, 250, 250, 0.30);
     --accent: var(--ink);
     --glow: rgba(0, 0, 0, 0.30);
-  }
-
-  [data-theme="light"] {
-    --bg: #fbfbfa;
-    --ink: #0c0c0d;
-    --muted: rgba(12, 12, 13, 0.42);
-    --muted-strong: rgba(12, 12, 13, 0.66);
-    --chip-bg: rgba(12, 12, 13, 0.045);
-    --chip-bg-hover: rgba(12, 12, 13, 0.10);
-    --chip-border: rgba(12, 12, 13, 0.14);
-    --field-bg: rgba(12, 12, 13, 0.05);
-    --field-focus: rgba(12, 12, 13, 0.34);
-    --glow: rgba(0, 0, 0, 0.10);
-  }
-
-  [data-theme="paper"] {
-    --bg: #f4efe6;
-    --ink: #1b1813;
-    --muted: rgba(27, 24, 19, 0.40);
-    --muted-strong: rgba(27, 24, 19, 0.64);
-    --chip-bg: rgba(27, 24, 19, 0.05);
-    --chip-bg-hover: rgba(27, 24, 19, 0.11);
-    --chip-border: rgba(27, 24, 19, 0.16);
-    --field-bg: rgba(27, 24, 19, 0.05);
-    --field-focus: rgba(27, 24, 19, 0.34);
-    --glow: rgba(0, 0, 0, 0.12);
-  }
-
-  [data-theme="ink"] {
-    --bg: #06121f;
-    --ink: #eaf2fb;
-    --muted: rgba(234, 242, 251, 0.42);
-    --muted-strong: rgba(234, 242, 251, 0.64);
-    --chip-bg: rgba(234, 242, 251, 0.06);
-    --chip-bg-hover: rgba(234, 242, 251, 0.13);
-    --chip-border: rgba(234, 242, 251, 0.16);
-    --field-bg: rgba(234, 242, 251, 0.07);
-    --field-focus: rgba(234, 242, 251, 0.34);
-    --glow: rgba(0, 0, 0, 0.40);
-  }
-
-  /* Bold high-contrast accent theme (grafted from the "signage" candidate) */
-  [data-theme="neon"] {
-    --bg: #050505;
-    --ink: #39ff14;
-    --muted: rgba(57, 255, 20, 0.40);
-    --muted-strong: rgba(57, 255, 20, 0.62);
-    --chip-bg: rgba(57, 255, 20, 0.06);
-    --chip-bg-hover: rgba(57, 255, 20, 0.14);
-    --chip-border: rgba(57, 255, 20, 0.22);
-    --field-bg: rgba(57, 255, 20, 0.07);
-    --field-focus: rgba(57, 255, 20, 0.45);
-    --glow: rgba(57, 255, 20, 0.22);
   }
 
   * { box-sizing: border-box; }
@@ -218,12 +172,171 @@
     to   { transform: translate3d(calc(-1 * var(--unit, 0px)), 0, 0); }
   }
 
+  /* ============================================================ *
+   *  RAINBOW / UNICORN COLOR MODE
+   *  ------------------------------------------------------------
+   *  The big value text is painted with a multi-stop gradient that
+   *  is clipped to the glyph shapes via background-clip:text. The
+   *  gradient is wider than the box (background-size > 100%) and we
+   *  animate background-position so the hues continuously flow.
+   *
+   *  Two independent CSS custom properties drive the look:
+   *    --rb-image  : the gradient (built in JS from the DIY stops)
+   *    --rb-dur    : the flow duration in seconds (speed control)
+   *
+   *  We apply the paint to whatever element actually HOLDS the
+   *  glyphs so it works identically in both render modes:
+   *    • normal mode → text lives in #display itself
+   *    • scroll mode → text lives in the two .seg copies
+   *  Both .seg copies share one synced animation timeline, so the
+   *  gradient phase is identical where copy #2 meets copy #1 — the
+   *  marquee seam stays invisible.
+   * ============================================================ */
+  #display.rainbow,
+  #display.rainbow .seg {
+    background-image: var(--rb-image,
+      linear-gradient(90deg,#ff004c,#ff8a00,#ffe600,#33d35e,#00b3ff,#7a5cff,#ff2db5,#ff004c));
+    background-size: 200% 100%;
+    /* REPEAT (not no-repeat) so panning the position can never expose a gap or
+       transparent flash at the extremes — the gradient tiles infinitely. The
+       gradient is built closed (its last stop == its first), so adjacent tiles
+       join C0-continuously and the seam between tiles is invisible. With
+       background-size:200%, panning background-position-x by -200% displaces by
+       exactly one tile width (proof: |displacement| = (P/100)(image-box) and
+       tile = 2*box, which are equal when P = -200 and image = 2*box), so the
+       rb-flow loop is pixel-identical end-to-start: no flicker, no seam. */
+    background-repeat: repeat;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;           /* fallback for engines w/o -webkit-text-fill-color */
+    /* the flowing animation; duration set live via --rb-dur */
+    animation: rb-flow var(--rb-dur, 6s) linear infinite;
+    /* kill the depth shadow — it would smear through transparent glyphs */
+    text-shadow: none;
+  }
+  /* the moving marquee transform lives on #track, so the rainbow paint on the
+     SEGS must not also carry the transform animation — only the flow. */
+
+  /* When the value scrolls AND is rainbow, the #display itself is just the
+     viewport; the paint is on .seg. Make sure #display stays transparent text
+     only when it actually holds text (normal mode handled by the rule above). */
+
+  /* A soft premium glow behind the glyphs — readable, never gaudy. Subtle drop
+     shadow tuned per flavor below. Applied to the text-bearing element. */
+  #display.rainbow.glow,
+  #display.rainbow.glow .seg {
+    filter: drop-shadow(0 0 calc(0.05em + 2px) var(--rb-glow, rgba(255,255,255,0.30)));
+  }
+
+  /* SWAP-POP IN RAINBOW MODE (bug fix): `#display.swap {animation: pop}` and
+     `#display.rainbow {animation: rb-flow infinite}` have equal specificity
+     (1 id + 1 class), so source order alone makes rb-flow clobber the swap pop
+     whenever Rainbow is on — the value change would show no fade/scale/blur-in.
+     The `animation` shorthand can't merge two declarations, so we COMPOSE both
+     animations in a single higher-specificity rule (1 id + 2 classes) that wins
+     while .swap is present: the one-shot pop plays AND the infinite flow keeps
+     running. (Under prefers-reduced-motion the rainbow rule below uses
+     `animation: none !important`, which still beats this rule — so reduced
+     motion correctly suppresses BOTH the pop and the flow.) */
+  #display.rainbow.swap {
+    animation:
+      pop 360ms cubic-bezier(0.22, 1, 0.36, 1),
+      rb-flow var(--rb-dur, 6s) linear infinite;
+  }
+  /* The .seg copies (scroll mode) only ever carried the flow — the pop plays on
+     the #display container above. Re-assert the flow here at matching
+     specificity so adding .swap to #display can't strip the flow off the segs. */
+  #display.rainbow.swap .seg {
+    animation: rb-flow var(--rb-dur, 6s) linear infinite;
+  }
+
+  /* UNICORN flavor: softer, pastel, holographic. We keep the SAME 200% tile +
+     rb-flow loop math (so the seam stays perfect) and lean on the pastel/
+     iridescent palette, the sparkle layer, and a softer glow for the dreamy
+     feel. We deliberately do NOT animate `filter` here (a hue-rotate animation
+     would override the .glow drop-shadow and shift the carefully-chosen pastel
+     hues) — the holographic read comes from the palette + sparkle, not motion
+     on the filter property. */
+  #display.rainbow[data-flavor="unicorn"],
+  #display.rainbow[data-flavor="unicorn"] .seg {
+    background-size: 200% 100%;
+  }
+
+  /* The sparkle layer — "unicorn magic". A few tiny soft highlights that drift
+     across the glyphs. It is a SEPARATE absolutely-positioned overlay (NOT the
+     text fill), masked to the same area, kept very low opacity so legibility is
+     untouched. It is added/removed by JS only for the unicorn flavor + when the
+     user keeps sparkle on. */
+  #sparkle {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 2;
+    opacity: 0.0;
+    transition: opacity 320ms ease;
+    background-image:
+      radial-gradient(circle at 50% 50%, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0) 60%),
+      radial-gradient(circle at 50% 50%, rgba(255,255,255,0.75) 0%, rgba(255,255,255,0) 55%),
+      radial-gradient(circle at 50% 50%, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0) 58%),
+      radial-gradient(circle at 50% 50%, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0) 52%);
+    background-repeat: no-repeat;
+    background-size: 9px 9px, 6px 6px, 11px 11px, 7px 7px;
+    background-position: 18% 30%, 70% 22%, 44% 74%, 86% 60%;
+    animation: sparkle-drift 7.5s ease-in-out infinite;
+    mix-blend-mode: screen;
+  }
+  #stage.sparkle-on #sparkle { opacity: 0.85; }
+
+  /* Empty-state placeholder must stay a quiet, dimmed hint — NOT a celebration.
+     When rainbow is on but there is no value, suppress the gradient fill, the
+     flow animation and the glow so "Type anything" reads as a calm muted
+     prompt. The doubled .empty.empty bumps specificity so this wins over BOTH
+     the saturated and the unicorn rainbow rules regardless of source order. */
+  #display.rainbow.empty.empty,
+  #display.rainbow.empty.empty .seg {
+    background-image: none;
+    -webkit-text-fill-color: var(--muted);
+    color: var(--muted);
+    animation: none;
+    filter: none;
+  }
+
+  /* Pan the tiled gradient by exactly ONE tile width. With background-size:200%
+     the tile is 2*box wide, and a -200% background-position-x step displaces by
+     exactly that, so the loop is pixel-identical end-to-start (zero flicker /
+     seam), independent of resolution or text length. */
+  @keyframes rb-flow {
+    from { background-position-x: 0%; }
+    to   { background-position-x: -200%; }
+  }
+  @keyframes sparkle-drift {
+    0%   { background-position: 18% 30%, 70% 22%, 44% 74%, 86% 60%; opacity: 0.55; }
+    25%  { background-position: 30% 26%, 64% 30%, 50% 68%, 80% 66%; opacity: 0.9; }
+    50%  { background-position: 22% 36%, 74% 18%, 40% 78%, 90% 54%; opacity: 0.7; }
+    75%  { background-position: 34% 28%, 60% 26%, 54% 70%, 76% 62%; opacity: 0.95; }
+    100% { background-position: 18% 30%, 70% 22%, 44% 74%, 86% 60%; opacity: 0.55; }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     #display.swap { animation: none; }
     body { transition: none; }
     /* The marquee is the user's deliberate, explicit opt-in, so it still
        scrolls when enabled. We only suppress involuntary motion (the swap
        pop and the background/color transition above). */
+
+    /* RAINBOW: the colour flow is an explicit opt-in, but reduced-motion users
+       should not get continuous fast motion. We keep the gradient STATIC and
+       still colourful (no position flow, no iris breathing, no sparkle drift).
+       The text stays beautifully multi-coloured — just not moving. */
+    #display.rainbow,
+    #display.rainbow .seg,
+    #display.rainbow[data-flavor="unicorn"],
+    #display.rainbow[data-flavor="unicorn"] .seg {
+      animation: none !important;
+      background-position: 50% 50% !important;
+    }
+    #sparkle { animation: none !important; opacity: 0 !important; }
   }
 
   /* ---- Controls (quiet, tucked at the bottom, revealed on hover) ---- */
@@ -287,6 +400,12 @@
     color: var(--ink);
     border-color: var(--field-focus);
     background: var(--chip-bg-hover);
+  }
+  /* a little rainbow tint on the pressed Rainbow chip so it reads as "live" */
+  #rainbowBtn[aria-pressed="true"] {
+    border-color: transparent;
+    background-image: linear-gradient(90deg, rgba(255,0,76,0.18), rgba(122,92,255,0.18), rgba(0,179,255,0.18));
+    color: var(--ink);
   }
 
   .input-wrap {
@@ -357,6 +476,8 @@
     appearance: none;
     transition: transform 120ms ease, box-shadow 160ms ease;
     position: relative;
+    /* per-swatch preview colours are set inline by JS from the THEMES registry */
+    background: var(--sw-bg, #444);
   }
   .swatch:hover { transform: scale(1.12); }
   .swatch:focus-visible {
@@ -366,11 +487,6 @@
   .swatch[aria-pressed="true"] {
     box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--field-focus);
   }
-  .swatch[data-theme-name="dark"]  { background: #0a0a0b; border-color: rgba(255,255,255,0.28); }
-  .swatch[data-theme-name="light"] { background: #fbfbfa; border-color: rgba(0,0,0,0.22); }
-  .swatch[data-theme-name="paper"] { background: #f4efe6; border-color: rgba(0,0,0,0.18); }
-  .swatch[data-theme-name="ink"]   { background: #06121f; border-color: rgba(255,255,255,0.22); }
-  .swatch[data-theme-name="neon"]  { background: radial-gradient(circle at 30% 30%, #39ff14, #0a0a0a 78%); border-color: rgba(57,255,20,0.45); }
 
   .spacer { flex: 0 0 auto; width: 8px; }
 
@@ -395,7 +511,8 @@
     white-space: nowrap;
   }
 
-  #speed {
+  /* shared range styling — used by both the scroll speed and the rainbow speed */
+  input[type="range"].rng {
     appearance: none;
     -webkit-appearance: none;
     width: 116px;
@@ -404,20 +521,18 @@
     cursor: pointer;
     margin: 0;
   }
-  #speed:disabled { cursor: default; }
-  /* track */
-  #speed::-webkit-slider-runnable-track {
+  input[type="range"].rng:disabled { cursor: default; }
+  input[type="range"].rng::-webkit-slider-runnable-track {
     height: 4px;
     border-radius: 999px;
     background: var(--chip-border);
   }
-  #speed::-moz-range-track {
+  input[type="range"].rng::-moz-range-track {
     height: 4px;
     border-radius: 999px;
     background: var(--chip-border);
   }
-  /* thumb */
-  #speed::-webkit-slider-thumb {
+  input[type="range"].rng::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
     width: 14px;
@@ -428,21 +543,89 @@
     border: 1px solid var(--chip-border);
     transition: transform 120ms ease;
   }
-  #speed::-moz-range-thumb {
+  input[type="range"].rng::-moz-range-thumb {
     width: 14px;
     height: 14px;
     border-radius: 50%;
     background: var(--ink);
     border: 1px solid var(--chip-border);
   }
-  #speed:hover::-webkit-slider-thumb { transform: scale(1.12); }
-  #speed:focus-visible { outline: none; }
-  #speed:focus-visible::-webkit-slider-thumb {
+  input[type="range"].rng:hover::-webkit-slider-thumb { transform: scale(1.12); }
+  input[type="range"].rng:focus-visible { outline: none; }
+  input[type="range"].rng:focus-visible::-webkit-slider-thumb {
     box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--field-focus);
   }
-  #speed:focus-visible::-moz-range-thumb {
+  input[type="range"].rng:focus-visible::-moz-range-thumb {
     box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--field-focus);
   }
+
+  /* ---- DIY color drawer (the expanded "color space") -------------------- *
+   *  Tucked away behind the "Color" chip so the default view stays calm.
+   *  When open it shows: theme swatches (data-driven), custom TEXT + BG
+   *  colour pickers, rainbow flavour selector, rainbow speed, and the live
+   *  rainbow gradient stop pickers for real DIY depth.
+   * ---------------------------------------------------------------------- */
+  #diyRow {
+    display: none;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    align-items: center;
+    justify-content: center;
+    max-width: 980px;
+    width: 100%;
+    padding-top: 2px;
+  }
+  #diyRow.open { display: flex; }
+
+  .diy-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+  }
+  .diy-group .ctl-label {
+    font-size: 11px;
+    font-weight: 560;
+    letter-spacing: 0.02em;
+    color: var(--muted);
+    user-select: none;
+    white-space: nowrap;
+  }
+  .diy-sep {
+    width: 1px;
+    height: 20px;
+    background: var(--chip-border);
+    flex: 0 0 auto;
+  }
+
+  /* native colour input, restyled into a tidy round chip */
+  input[type="color"].pick {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 1px solid var(--chip-border);
+    border-radius: 8px;
+    background: transparent;
+    cursor: pointer;
+    overflow: hidden;
+  }
+  input[type="color"].pick::-webkit-color-swatch-wrapper { padding: 0; }
+  input[type="color"].pick::-webkit-color-swatch { border: none; border-radius: 6px; }
+  input[type="color"].pick::-moz-color-swatch { border: none; border-radius: 6px; }
+  input[type="color"].pick:focus-visible {
+    outline: 2px solid var(--field-focus);
+    outline-offset: 2px;
+  }
+  /* the rainbow stop pickers get a slightly smaller round shape */
+  input[type="color"].stop {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+  }
+  input[type="color"].stop::-webkit-color-swatch { border-radius: 50%; }
+  input[type="color"].stop::-moz-color-swatch { border-radius: 50%; }
 
   .hint {
     font-size: 11.5px;
@@ -466,11 +649,15 @@
     #controls { opacity: 1; transform: none; }
   }
 </style>
+<!-- Theme custom-property blocks are GENERATED here at runtime from the
+     data-driven THEMES registry so adding a preset is a one-line edit in JS. -->
+<style id="theme-styles"></style>
 </head>
 <body>
   <main id="app">
     <section id="stage" aria-live="polite">
       <div id="display" role="status" aria-label="Displayed value">996</div>
+      <div id="sparkle" aria-hidden="true"></div>
     </section>
 
     <div id="controls" role="group" aria-label="Controls">
@@ -516,23 +703,63 @@
 
         <div class="scrollctl is-off" id="scrollCtl">
           <span class="ctl-label" aria-hidden="true">Speed</span>
-          <input id="speed" type="range" min="20" max="600" step="5" value="120"
+          <input id="speed" class="rng" type="range" min="20" max="600" step="5" value="120"
                  aria-label="Scroll speed (pixels per second)" disabled />
         </div>
 
         <div class="spacer" aria-hidden="true"></div>
 
-        <div class="row" id="themeRow" role="group" aria-label="Theme" style="gap:6px; width:auto; flex:0 0 auto;">
-          <button class="swatch" type="button" data-theme-name="dark"  title="Dark"  aria-label="Dark theme"></button>
-          <button class="swatch" type="button" data-theme-name="light" title="Light" aria-label="Light theme"></button>
-          <button class="swatch" type="button" data-theme-name="paper" title="Paper" aria-label="Paper theme"></button>
-          <button class="swatch" type="button" data-theme-name="ink"   title="Ink"   aria-label="Ink theme"></button>
-          <button class="swatch" type="button" data-theme-name="neon"  title="Neon"  aria-label="Neon theme"></button>
+        <!-- Rainbow toggle (opt-in animated colour mode) -->
+        <button class="chip" id="rainbowBtn" type="button" title="Rainbow color mode (R)" aria-label="Toggle rainbow mode" aria-pressed="false">Rainbow</button>
+
+        <!-- Color drawer toggle (opens the DIY color space) -->
+        <button class="chip" id="colorBtn" type="button" title="Color & themes (C)" aria-label="Toggle color options" aria-pressed="false" aria-expanded="false" aria-controls="diyRow">Color</button>
+      </div>
+
+      <!-- ===== DIY COLOR SPACE (collapsible, tucked away) ===== -->
+      <div class="row" id="diyRow" role="group" aria-label="Color customization">
+        <!-- data-driven theme swatches -->
+        <div class="diy-group" id="themeGroup">
+          <span class="ctl-label" aria-hidden="true">Theme</span>
+          <div class="row" id="themeRow" role="group" aria-label="Theme" style="gap:6px; width:auto; flex:0 0 auto;">
+            <!-- swatch buttons injected by JS from the THEMES registry -->
+          </div>
+        </div>
+
+        <div class="diy-sep" aria-hidden="true"></div>
+
+        <!-- custom TEXT + BACKGROUND colour pickers -->
+        <div class="diy-group">
+          <span class="ctl-label" aria-hidden="true">Text</span>
+          <input type="color" class="pick" id="inkPick" value="#fafafa" aria-label="Custom text color" title="Custom text color" />
+          <span class="ctl-label" aria-hidden="true">Bg</span>
+          <input type="color" class="pick" id="bgPick" value="#0a0a0b" aria-label="Custom background color" title="Custom background color" />
+          <button class="iconbtn" id="resetColorBtn" type="button" title="Reset custom colors" aria-label="Reset custom colors" style="width:30px;height:30px;border-radius:8px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:15px;height:15px;">
+              <path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="diy-sep" aria-hidden="true"></div>
+
+        <!-- rainbow flavour + speed + DIY gradient stops -->
+        <div class="diy-group" id="rainbowGroup">
+          <span class="ctl-label" aria-hidden="true">Rainbow</span>
+          <button class="chip" id="flavorBtn" type="button" title="Rainbow flavor" aria-label="Toggle rainbow flavor" style="font-size:12px; padding:7px 11px;">Unicorn</button>
+          <button class="chip" id="sparkleBtn" type="button" title="Unicorn sparkle" aria-label="Toggle sparkle" aria-pressed="false" style="font-size:12px; padding:7px 11px;">Sparkle</button>
+          <span class="ctl-label" aria-hidden="true">Flow</span>
+          <input id="rbSpeed" class="rng" type="range" min="1" max="20" step="0.5" value="6"
+                 aria-label="Rainbow color flow speed" style="width:96px;" />
+          <span class="ctl-label" aria-hidden="true">Stops</span>
+          <span class="row" id="stopsRow" style="gap:5px; width:auto; flex:0 0 auto;" role="group" aria-label="Rainbow gradient stops">
+            <!-- stop colour pickers injected by JS -->
+          </span>
         </div>
       </div>
 
       <div class="hint" aria-hidden="true">
-        <kbd>Enter</kbd> show &nbsp;·&nbsp; <kbd>Esc</kbd> clear &nbsp;·&nbsp; <kbd>S</kbd> scroll &nbsp;·&nbsp; <kbd>F</kbd> fullscreen
+        <kbd>Enter</kbd> show &nbsp;·&nbsp; <kbd>Esc</kbd> clear &nbsp;·&nbsp; <kbd>S</kbd> scroll &nbsp;·&nbsp; <kbd>R</kbd> rainbow &nbsp;·&nbsp; <kbd>C</kbd> color &nbsp;·&nbsp; <kbd>F</kbd> fullscreen
       </div>
     </div>
   </main>
@@ -542,18 +769,31 @@
   "use strict";
 
   // ---- Elements ----
-  var app       = document.getElementById("app");
-  var stage     = document.getElementById("stage");
-  var display   = document.getElementById("display");
-  var field     = document.getElementById("field");
-  var presetRow = document.getElementById("presetRow");
-  var clearBtn  = document.getElementById("clearBtn");
-  var fsBtn     = document.getElementById("fsBtn");
-  var themeRow  = document.getElementById("themeRow");
-  var scrollBtn = document.getElementById("scrollBtn");
-  var dirBtn    = document.getElementById("dirBtn");
-  var scrollCtl = document.getElementById("scrollCtl");
-  var speedEl   = document.getElementById("speed");
+  var app        = document.getElementById("app");
+  var stage      = document.getElementById("stage");
+  var display    = document.getElementById("display");
+  var sparkleEl  = document.getElementById("sparkle");
+  var field      = document.getElementById("field");
+  var presetRow  = document.getElementById("presetRow");
+  var clearBtn   = document.getElementById("clearBtn");
+  var fsBtn      = document.getElementById("fsBtn");
+  var themeRow   = document.getElementById("themeRow");
+  var scrollBtn  = document.getElementById("scrollBtn");
+  var dirBtn     = document.getElementById("dirBtn");
+  var scrollCtl  = document.getElementById("scrollCtl");
+  var speedEl    = document.getElementById("speed");
+  // rainbow + DIY
+  var rainbowBtn = document.getElementById("rainbowBtn");
+  var colorBtn   = document.getElementById("colorBtn");
+  var diyRow     = document.getElementById("diyRow");
+  var inkPick    = document.getElementById("inkPick");
+  var bgPick     = document.getElementById("bgPick");
+  var resetColorBtn = document.getElementById("resetColorBtn");
+  var flavorBtn  = document.getElementById("flavorBtn");
+  var sparkleBtn = document.getElementById("sparkleBtn");
+  var rbSpeedEl  = document.getElementById("rbSpeed");
+  var stopsRow   = document.getElementById("stopsRow");
+  var themeStyleEl = document.getElementById("theme-styles");
 
   var PLACEHOLDER = "Type anything";
 
@@ -574,6 +814,109 @@
   });
   var presetChips = Array.prototype.slice.call(presetRow.querySelectorAll(".chip"));
 
+  // ===================================================================== //
+  //  DATA-DRIVEN THEME REGISTRY                                           //
+  //  Add a tasteful preset by appending ONE entry here — its CSS block,   //
+  //  its swatch button, and its persistence all flow from this object.    //
+  //  Each theme provides a base ink/bg/accent + a glow; the derived       //
+  //  rgba tints (muted, chips, fields…) are computed from ink so authors  //
+  //  only have to pick the two or three colours that matter.              //
+  // ===================================================================== //
+  var THEMES = {
+    dark:   { label: "Dark",   bg: "#0a0a0b", ink: "#fafafa", glow: "rgba(0,0,0,0.30)" },
+    light:  { label: "Light",  bg: "#fbfbfa", ink: "#0c0c0d", glow: "rgba(0,0,0,0.10)" },
+    paper:  { label: "Paper",  bg: "#f4efe6", ink: "#1b1813", glow: "rgba(0,0,0,0.12)" },
+    ink:    { label: "Ink",    bg: "#06121f", ink: "#eaf2fb", glow: "rgba(0,0,0,0.40)" },
+    neon:   { label: "Neon",   bg: "#050505", ink: "#39ff14", glow: "rgba(57,255,20,0.22)",
+              swatch: "radial-gradient(circle at 30% 30%, #39ff14, #0a0a0a 78%)" },
+    // ---- new tasteful presets (proof the registry is trivially extensible) ----
+    sunset: { label: "Sunset", bg: "#1a0e14", ink: "#ffd9a0", glow: "rgba(255,120,60,0.22)",
+              swatch: "linear-gradient(135deg, #ff7b54, #ffd9a0)" },
+    mint:   { label: "Mint",   bg: "#06140f", ink: "#aef5d2", glow: "rgba(70,220,160,0.20)",
+              swatch: "linear-gradient(135deg, #0b3, #aef5d2)" },
+    rose:   { label: "Rose",   bg: "#fdf2f5", ink: "#7a1331", glow: "rgba(170,30,70,0.12)",
+              swatch: "linear-gradient(135deg, #ffb3c8, #7a1331)" },
+    slate:  { label: "Slate",  bg: "#11161d", ink: "#cdd7e3", glow: "rgba(0,0,0,0.34)",
+              swatch: "linear-gradient(135deg, #2a3340, #cdd7e3)" },
+    gold:   { label: "Gold",   bg: "#0c0a05", ink: "#f4c95d", glow: "rgba(220,170,40,0.22)",
+              swatch: "radial-gradient(circle at 30% 30%, #f4c95d, #0c0a05 80%)" }
+  };
+
+  // Parse a #rrggbb (or #rgb) hex into {r,g,b}; returns null on failure.
+  function hexToRgb(hex) {
+    if (typeof hex !== "string") return null;
+    var h = hex.trim().replace(/^#/, "");
+    if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+    if (!/^[0-9a-fA-F]{6}$/.test(h)) return null;
+    return {
+      r: parseInt(h.slice(0, 2), 16),
+      g: parseInt(h.slice(2, 4), 16),
+      b: parseInt(h.slice(4, 6), 16)
+    };
+  }
+  function rgba(rgb, a) {
+    if (!rgb) return "rgba(0,0,0," + a + ")";
+    return "rgba(" + rgb.r + "," + rgb.g + "," + rgb.b + "," + a + ")";
+  }
+
+  // Build the full set of CSS custom properties for a palette {bg, ink, glow}.
+  // The many derived tints (muted, chip backgrounds, field colours…) are all
+  // computed from the ink colour so a theme author supplies only ink+bg+glow.
+  function paletteVars(p) {
+    var ink = hexToRgb(p.ink) || { r: 250, g: 250, b: 250 };
+    return {
+      "--bg": p.bg,
+      "--ink": p.ink,
+      "--muted": rgba(ink, 0.40),
+      "--muted-strong": rgba(ink, 0.62),
+      "--chip-bg": rgba(ink, 0.05),
+      "--chip-bg-hover": rgba(ink, 0.12),
+      "--chip-border": rgba(ink, 0.16),
+      "--field-bg": rgba(ink, 0.06),
+      "--field-focus": rgba(ink, 0.32),
+      "--accent": p.ink,
+      "--glow": p.glow || rgba(ink, 0.18)
+    };
+  }
+
+  // Emit one [data-theme="name"] { … } block per registry entry into the
+  // generated <style> element. Done once at boot; re-runnable if THEMES grows.
+  function renderThemeStyles() {
+    var css = "";
+    Object.keys(THEMES).forEach(function (name) {
+      var vars = paletteVars(THEMES[name]);
+      var body = Object.keys(vars).map(function (k) {
+        return "    " + k + ": " + vars[k] + ";";
+      }).join("\n");
+      css += '[data-theme="' + name + '"] {\n' + body + "\n}\n";
+    });
+    themeStyleEl.textContent = css;
+  }
+
+  // Build the theme swatch buttons from the registry.
+  var swatches = [];
+  function renderSwatches() {
+    themeRow.innerHTML = "";
+    swatches = [];
+    Object.keys(THEMES).forEach(function (name) {
+      var t = THEMES[name];
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "swatch";
+      b.setAttribute("data-theme-name", name);
+      b.setAttribute("title", t.label);
+      b.setAttribute("aria-label", t.label + " theme");
+      // preview: explicit swatch gradient if provided, else the bg colour.
+      b.style.setProperty("--sw-bg", t.swatch || t.bg);
+      // contrast border so very-dark/very-light swatches stay visible
+      var ink = hexToRgb(t.ink);
+      b.style.borderColor = rgba(ink, 0.34);
+      b.addEventListener("click", function () { setTheme(name); });
+      themeRow.appendChild(b);
+      swatches.push(b);
+    });
+  }
+
   // ---- State ----
   var current = "";          // the value currently displayed ("" => empty state)
   var rafId = null;          // pending fit frame
@@ -587,10 +930,26 @@
   var seg2      = null;                             // decorative duplicate copy
   var unit      = 0;                                // loop distance: copy width + gap (px)
 
+  // ---- Rainbow / DIY state ----
+  // Lead with the UNICORN / holographic aesthetic (the brief's direction): the
+  // first time the user enables Rainbow they get the soft pastel iridescent
+  // look + sparkle. The saturated "Rainbow" flavor is one tap away.
+  var rainbowOn = false;
+  var flavor    = "unicorn";       // "unicorn" (pastel, default) | "rainbow" (saturated)
+  var sparkleOn = true;            // sparkle defaults on (only shows for unicorn)
+  var rbDur     = parseFloat(rbSpeedEl.value) || 6;  // seconds per gradient cycle
+
+  // Default DIY gradient stops per flavour. Editable live via the stop pickers.
+  var RB_DEFAULTS = {
+    rainbow: ["#ff004c", "#ff8a00", "#ffe600", "#33d35e", "#00b3ff", "#7a5cff", "#ff2db5"],
+    unicorn: ["#ffd1ec", "#d9c2ff", "#bfe3ff", "#c8ffe6", "#fff3c4", "#ffd1ec"]
+  };
+  // Working copy of stops for the CURRENT flavour (what the pickers edit).
+  var rbStops = RB_DEFAULTS[flavor].slice();
+
+  var STORE_KEY = "big-screen.diy.v1";
+
   // ---- Auto-fit typography -------------------------------------------------
-  // Binary-search the largest font-size such that the text fits within the
-  // stage's content box in BOTH width and height. Works for numbers, short
-  // words, and multi-word phrases (which are allowed to wrap).
   function availableBox() {
     var cs = getComputedStyle(stage);
     var padL = parseFloat(cs.paddingLeft)   || 0;
@@ -606,8 +965,6 @@
   }
 
   function fits(box) {
-    // scrollWidth/Height reflect the full rendered extent of the text.
-    // A 0.5px slack absorbs sub-pixel rounding so we never falsely "fit".
     return (display.scrollWidth  <= box.w + 0.5) &&
            (display.scrollHeight <= box.h + 0.5);
   }
@@ -623,17 +980,12 @@
 
     var text = (current.length ? current : PLACEHOLDER);
 
-    // Decide wrapping: phrases with whitespace may wrap to use vertical space.
     var multiWord = /\s/.test(text.trim());
     display.classList.toggle("wrap", multiWord);
 
-    // Cap font size to the box height (a single line can't exceed the box).
-    // Adaptive ceiling (idea grafted from "signage") so very large / 4K
-    // viewports still let a single short glyph grow truly huge.
     var MIN = 8;
     var MAX = Math.max(MIN + 1, Math.min(Math.max(box.h, box.w) * 1.6, 4000));
 
-    // Quick exit: if even MIN doesn't fit, clamp to MIN.
     display.style.fontSize = MIN + "px";
     if (!fits(box)) {
       display.style.fontSize = MIN + "px";
@@ -643,18 +995,16 @@
     var lo = MIN;
     var hi = MAX;
 
-    // Binary search (~22 iterations gives sub-pixel precision over the range).
     for (var i = 0; i < 22 && (hi - lo) > 0.5; i++) {
       var mid = (lo + hi) / 2;
       display.style.fontSize = mid + "px";
       if (fits(box)) {
-        lo = mid;          // fits => try bigger
+        lo = mid;
       } else {
-        hi = mid;          // overflow => go smaller
+        hi = mid;
       }
     }
 
-    // Land on the largest known-good size.
     display.style.fontSize = lo + "px";
   }
 
@@ -664,8 +1014,6 @@
   }
 
   // ---- Scroll-mode height-fit + seamless CSS-keyframe marquee --------------
-  // Build the two-copy track inside #display so the loop is invisible. The
-  // first copy is the a11y-visible value; the second is a decorative duplicate.
   function buildScrollDOM() {
     display.textContent = "";
     track = document.createElement("div");
@@ -683,31 +1031,20 @@
     display.appendChild(track);
   }
 
-  // Height-fit: size glyphs as big as the stage HEIGHT allows for a single
-  // line, IGNORING width — so long text stays big and scrolls instead of
-  // shrinking. Then measure the rendered single-line width to derive the
-  // seamless loop distance and the CSS animation-duration (distance / speed).
   function fitScroll(box) {
     if (!box) box = availableBox();
     if (box.w <= 0 || box.h <= 0) return;
 
     var text = (current.length ? current : PLACEHOLDER);
 
-    // (Re)build the DOM if missing (first entry into scroll mode).
     if (!track || !seg || !seg2 || !display.contains(track)) {
       buildScrollDOM();
     }
-    // Always refresh both copies' text to the current value.
     seg.textContent = text;
     seg2.textContent = text;
 
-    // empty-state styling reuses the existing .empty class on #display.
     display.classList.toggle("empty", current.length === 0);
 
-    // --- Height-only binary search on the single copy's height. ---
-    // Measure seg.scrollHeight (single line, nowrap) against box.h ONLY, so
-    // width never shrinks the glyphs. Set the size on #display so all metrics
-    // (line-height etc.) match the normal mode; the copies inherit it.
     var MIN = 8;
     var MAX = Math.max(MIN + 1, Math.min(box.h * 1.6, 4000));
 
@@ -720,56 +1057,39 @@
         var mid = (lo + hi) / 2;
         display.style.fontSize = mid + "px";
         if (seg.scrollHeight <= box.h + 0.5) {
-          lo = mid;     // fits in height => grow
+          lo = mid;
         } else {
-          hi = mid;     // too tall => shrink
+          hi = mid;
         }
       }
       display.style.fontSize = lo + "px";
     }
 
-    // --- Measure the rendered single-line width at the chosen size. ---
     var fontPx = parseFloat(getComputedStyle(display).fontSize) || 40;
     var segWidth = seg.getBoundingClientRect().width;
 
-    // Does the single line overflow the stage width? Only then do we scroll.
     var needScroll = (segWidth > box.w + 0.5);
 
     if (!needScroll) {
-      // Fits — no scrolling. Center it big, with NO visible duplicate and no
-      // motion. Collapse the gap, hide the second copy, and clear the anim.
       stopMarquee();
       display.classList.add("centered");
       track.style.gap = "0px";
       track.style.removeProperty("--unit");
-      seg2.style.display = "none";        // suppress the decorative duplicate
+      seg2.style.display = "none";
       unit = 0;
       return;
     }
 
-    // Overflows — run the seamless two-copy marquee.
     display.classList.remove("centered");
-    seg2.style.display = "";              // re-show the duplicate
+    seg2.style.display = "";
 
-    // Gap between the two copies so the looped text doesn't butt against
-    // itself; scales with font for a size-proportional breather.
     var gap = Math.max(fontPx * 0.6, 24);
     track.style.gap = gap + "px";
 
-    // Loop distance: one copy + one gap. After the keyframe translates the
-    // track by exactly this much, copy #2 sits precisely where copy #1 began,
-    // so the loop boundary is pixel-identical (invisible seam).
     var prevUnit = unit;
     var wasRunning = track.classList.contains("run");
     unit = segWidth + gap;
 
-    // PHASE-PRESERVING RE-FIT: if the marquee was already running and the loop
-    // distance is effectively unchanged (a re-fit triggered by resize/theme/
-    // fonts.ready/ResizeObserver that recomputed the SAME size), do NOT do the
-    // reflow-restart — that would snap the scroll back to its start. Instead
-    // re-anchor in place, preserving the current visual phase. Only fall back
-    // to a fresh restart when the distance actually changed or we're starting
-    // from a stopped state.
     if (wasRunning && Math.abs(unit - prevUnit) < 0.5) {
       reanchorMarquee();
     } else {
@@ -777,98 +1097,69 @@
     }
   }
 
-  // Start (or restart) the CSS-keyframe marquee FRESH for the current `unit`,
-  // direction and speed. Duration = unit / speed => constant linear px/s for
-  // any text length. Used on first entry, value change, direction change, or
-  // when the loop distance actually changed — the keyframe begins at `from`.
   function startMarquee() {
     if (!track || unit <= 0) return;
 
-    var duration = unit / speedPxs;        // seconds
+    var duration = unit / speedPxs;
     if (!isFinite(duration) || duration <= 0) duration = 0.001;
 
     track.style.setProperty("--unit", unit + "px");
     track.style.animationDuration = duration + "s";
-    track.style.removeProperty("animation-delay"); // fresh phase from `from`
+    track.style.removeProperty("animation-delay");
     track.classList.toggle("rtl", dirRTL);
 
-    // Restart cleanly: drop .run, force reflow, re-add so the keyframe begins
-    // at its `from` state (seamless, no startup jump).
     track.classList.remove("run");
-    void track.offsetWidth;                // reflow to reset the animation
+    void track.offsetWidth;
     track.classList.add("run");
   }
 
-  // Re-anchor an ALREADY-RUNNING marquee to the current `unit`/speed WITHOUT a
-  // reflow-restart, preserving its current visual phase. This is the fix for
-  // the re-fit-snaps-to-start bug: resize / theme / fonts.ready / ResizeObserver
-  // re-runs fitScroll(), and when the loop distance is unchanged we must keep
-  // scrolling smoothly rather than yanking back to the start.
   function reanchorMarquee() {
     if (!track || unit <= 0) return;
 
-    var duration = unit / speedPxs;        // seconds
+    var duration = unit / speedPxs;
     if (!isFinite(duration) || duration <= 0) duration = 0.001;
 
-    // Capture progress BEFORE mutating --unit/duration (currentProgress reads
-    // the live transform against the current --unit).
     var frac = currentProgress();
 
     track.style.setProperty("--unit", unit + "px");
     track.classList.toggle("rtl", dirRTL);
     track.style.animationDuration = duration + "s";
-    // Negative delay pre-seeks the animation to `frac` of the way through, so
-    // it continues from exactly where it was — no jump, no restart, no reflow.
     track.style.animationDelay = (-(frac * duration)) + "s";
   }
 
-  // Update only the speed of an already-running marquee, preserving the
-  // current visual phase so dragging the slider doesn't jump. We read the
-  // live computed transform, convert it to a 0..1 progress, set the new
-  // duration, and pre-seek with a negative animation-delay to the same phase.
   function updateMarqueeSpeed() {
     if (!track || unit <= 0 || !track.classList.contains("run")) return;
 
-    var duration = unit / speedPxs;        // seconds
+    var duration = unit / speedPxs;
     if (!isFinite(duration) || duration <= 0) duration = 0.001;
 
-    // Derive current progress (0..1) from the live transform translateX.
     var frac = currentProgress();
 
     track.style.animationDuration = duration + "s";
-    // Negative delay pre-seeks the animation to `frac` of the way through.
     track.style.animationDelay = (-(frac * duration)) + "s";
   }
 
-  // Read the current translateX of the track and map it to animation progress
-  // in [0,1) for the active direction. Used to keep phase across speed changes.
   function currentProgress() {
     if (!track || unit <= 0) return 0;
     var tx = 0;
     var cs = getComputedStyle(track);
     var t = cs.transform || cs.webkitTransform;
     if (t && t !== "none") {
-      // matrix(a,b,c,d,e,f) => e (index 4) is translateX;
-      // matrix3d(...) => translateX is index 12.
       var is3d = t.indexOf("matrix3d") === 0;
       var nums = t.replace(/^matrix(3d)?\(/, "").replace(/\)$/, "").split(",");
       tx = parseFloat(is3d ? nums[12] : nums[4]) || 0;
     }
     var frac;
     if (dirRTL) {
-      // rtl keyframe: 0 -> -unit. progress = (-tx)/unit.
       frac = (-tx) / unit;
     } else {
-      // ltr keyframe: -unit -> 0. progress = (tx + unit)/unit.
       frac = (tx + unit) / unit;
     }
-    // normalize into [0,1)
     frac = frac % 1;
     if (frac < 0) frac += 1;
     return frac;
   }
 
-  // Stop the marquee and clear its inline animation state.
   function stopMarquee() {
     if (track) {
       track.classList.remove("run");
@@ -876,7 +1167,6 @@
     }
   }
 
-  // Enter scroll mode: convert #display into the marquee viewport.
   function enterScroll() {
     display.classList.remove("wrap");
     display.classList.add("scroll");
@@ -884,7 +1174,6 @@
     fitScroll();
   }
 
-  // Exit scroll mode: tear down the marquee and restore the exact prior render.
   function exitScroll() {
     stopMarquee();
     display.classList.remove("scroll", "centered");
@@ -892,7 +1181,6 @@
     seg = null;
     seg2 = null;
     unit = 0;
-    // Restore plain text content; the standard fit() path takes over.
     if (current.length === 0) {
       display.textContent = PLACEHOLDER;
       display.classList.add("empty");
@@ -916,19 +1204,20 @@
     } else {
       exitScroll();
     }
+    // The rainbow paint targets either #display (normal) or .seg (scroll) via
+    // CSS selectors, so simply re-asserting the class set keeps it consistent.
+    applyRainbowClasses();
   }
 
   function setDirection(rtl) {
     dirRTL = !!rtl;
     dirBtn.setAttribute("aria-pressed", dirRTL ? "true" : "false");
-    // Flip the arrow glyph to reflect travel direction.
     var icon = document.getElementById("dirIcon");
     if (icon) {
       icon.innerHTML = dirRTL
-        ? '<path d="M19 12H5M11 6l-6 6 6 6"/>'   // ←  (content travels left)
-        : '<path d="M5 12h14M13 6l6 6-6 6"/>';   // →  (content travels right)
+        ? '<path d="M19 12H5M11 6l-6 6 6 6"/>'
+        : '<path d="M5 12h14M13 6l6 6-6 6"/>';
     }
-    // Re-seat the marquee so the direction change starts cleanly (no pop).
     if (scrollOn && unit > 0 && track && track.classList.contains("run")) {
       startMarquee();
     }
@@ -939,20 +1228,15 @@
     opts = opts || {};
     var val = (raw == null) ? "" : String(raw);
 
-    // collapse runs of whitespace but keep single spaces between words
     var normalized = val.replace(/[ \t]+/g, " ").replace(/\s*\n\s*/g, " ").trim();
 
     var changed = normalized !== current;
     current = normalized;
 
     if (scrollOn) {
-      // In scroll mode the visible text lives inside the copies, not in
-      // #display's direct textContent. fitScroll() refreshes the copies and
-      // re-derives the height-fit + loop distance. The empty-state class is
-      // also set there. We keep the swap pop on #display for an actual change.
       if (changed && !opts.silentAnim) {
         display.classList.remove("swap");
-        void display.offsetWidth; // reflow to restart the animation
+        void display.offsetWidth;
         display.classList.add("swap");
       }
       updatePressedPresets();
@@ -968,10 +1252,8 @@
       display.classList.remove("empty");
     }
 
-    // swap animation only on an actual change (and respect reduced motion)
     if (changed && !opts.silentAnim) {
       display.classList.remove("swap");
-      // reflow to restart the animation
       void display.offsetWidth;
       display.classList.add("swap");
     }
@@ -988,21 +1270,254 @@
   }
 
   // ---- Theme ---------------------------------------------------------------
-  var swatches = Array.prototype.slice.call(themeRow.querySelectorAll(".swatch"));
-
-  function setTheme(name) {
+  function setTheme(name, opts) {
+    opts = opts || {};
+    if (!THEMES[name]) name = "dark";
+    // selecting a built-in theme clears any custom ink/bg overrides
+    clearCustomColorVars();
     document.documentElement.setAttribute("data-theme", name);
     swatches.forEach(function (s) {
       s.setAttribute("aria-pressed", s.getAttribute("data-theme-name") === name ? "true" : "false");
     });
+    // sync the colour pickers to this theme's base colours for a sensible
+    // starting point when the user reaches for DIY.
+    var t = THEMES[name];
+    if (t) {
+      if (/^#[0-9a-fA-F]{6}$/.test(t.ink)) inkPick.value = t.ink;
+      if (/^#[0-9a-fA-F]{6}$/.test(t.bg))  bgPick.value  = t.bg;
+    }
+    if (!opts.silent) {
+      persist();
+    }
     // theme change can affect available box via font rendering; re-fit defensively
     scheduleFit();
   }
 
-  swatches.forEach(function (s) {
-    s.addEventListener("click", function () {
-      setTheme(s.getAttribute("data-theme-name"));
+  // Live custom colours: write ink/bg (and derived tints) straight onto <html>
+  // as inline custom properties, which beat the [data-theme] block. We tag the
+  // doc with data-theme="custom" so no built-in swatch reads as pressed.
+  function applyCustomColors(opts) {
+    opts = opts || {};
+    var ink = inkPick.value;
+    var bg  = bgPick.value;
+    var vars = paletteVars({ ink: ink, bg: bg, glow: null });
+    var root = document.documentElement;
+    Object.keys(vars).forEach(function (k) {
+      root.style.setProperty(k, vars[k]);
     });
+    root.setAttribute("data-theme", "custom");
+    swatches.forEach(function (s) { s.setAttribute("aria-pressed", "false"); });
+    if (!opts.silent) persist();
+    scheduleFit();
+  }
+
+  function clearCustomColorVars() {
+    var root = document.documentElement;
+    ["--bg","--ink","--muted","--muted-strong","--chip-bg","--chip-bg-hover",
+     "--chip-border","--field-bg","--field-focus","--accent","--glow"]
+      .forEach(function (k) { root.style.removeProperty(k); });
+  }
+
+  // ===================================================================== //
+  //  RAINBOW                                                              //
+  // ===================================================================== //
+
+  // Build the CSS gradient string from the working stops. We APPEND the first
+  // stop again at the end so the gradient is CLOSED (last colour == first); with
+  // background-repeat:repeat that makes every tile boundary continuous, so the
+  // animated background-position-x pan loops with no visible jump or seam.
+  function buildGradient() {
+    var stops = rbStops.slice();
+    if (stops.length < 2) stops = RB_DEFAULTS[flavor].slice();
+    // ensure the cycle closes on its own first colour for a seamless loop
+    var closed = stops.concat([stops[0]]);
+    var n = closed.length;
+    var parts = closed.map(function (c, i) {
+      var pct = (i / (n - 1)) * 100;
+      return c + " " + pct.toFixed(2) + "%";
+    });
+    return "linear-gradient(90deg, " + parts.join(", ") + ")";
+  }
+
+  // Recompute and push the gradient + duration + glow into CSS custom props.
+  function applyRainbowStyle() {
+    var grad = buildGradient();
+    display.style.setProperty("--rb-image", grad);
+    display.style.setProperty("--rb-dur", rbDur + "s");
+    // glow colour: a soft tint derived from the flavour (white-ish for unicorn,
+    // a gentle warm/cool average for saturated). Keep it subtle.
+    var glow = (flavor === "unicorn")
+      ? "rgba(255,255,255,0.45)"
+      : "rgba(255,255,255,0.22)";
+    display.style.setProperty("--rb-glow", glow);
+  }
+
+  // Toggle the rainbow-related classes on #display / #stage. The actual paint
+  // lands on #display (normal) or its .seg children (scroll) via CSS, so we
+  // only manage classes + the sparkle overlay here.
+  function applyRainbowClasses() {
+    display.classList.toggle("rainbow", rainbowOn);
+    display.classList.toggle("glow", rainbowOn);
+    if (rainbowOn) {
+      display.setAttribute("data-flavor", flavor);
+    } else {
+      display.removeAttribute("data-flavor");
+    }
+    // sparkle only for unicorn flavour + user toggle + rainbow on
+    var showSparkle = rainbowOn && flavor === "unicorn" && sparkleOn;
+    stage.classList.toggle("sparkle-on", showSparkle);
+  }
+
+  function setRainbow(on) {
+    rainbowOn = !!on;
+    rainbowBtn.setAttribute("aria-pressed", rainbowOn ? "true" : "false");
+    if (rainbowOn) applyRainbowStyle();
+    applyRainbowClasses();
+    persist();
+  }
+
+  function setFlavor(name) {
+    flavor = (name === "unicorn") ? "unicorn" : "rainbow";
+    flavorBtn.textContent = (flavor === "unicorn") ? "Unicorn" : "Saturated";
+    flavorBtn.setAttribute("aria-pressed", "true");
+    // load that flavour's default stops + rebuild the stop pickers
+    rbStops = RB_DEFAULTS[flavor].slice();
+    renderStopPickers();
+    applyRainbowStyle();
+    applyRainbowClasses();
+    persist();
+  }
+
+  function setSparkle(on) {
+    sparkleOn = !!on;
+    sparkleBtn.setAttribute("aria-pressed", sparkleOn ? "true" : "false");
+    applyRainbowClasses();
+    persist();
+  }
+
+  // Build the live gradient-stop colour pickers from rbStops.
+  function renderStopPickers() {
+    stopsRow.innerHTML = "";
+    rbStops.forEach(function (c, idx) {
+      var p = document.createElement("input");
+      p.type = "color";
+      p.className = "pick stop";
+      p.value = /^#[0-9a-fA-F]{6}$/.test(c) ? c : "#ffffff";
+      p.setAttribute("aria-label", "Gradient stop " + (idx + 1));
+      p.setAttribute("title", "Gradient stop " + (idx + 1));
+      p.addEventListener("input", function () {
+        rbStops[idx] = p.value;
+        applyRainbowStyle();
+        persist();
+      });
+      stopsRow.appendChild(p);
+    });
+  }
+
+  // ---- DIY drawer open/close ----------------------------------------------
+  var diyOpen = false;
+  function setDiyOpen(open) {
+    diyOpen = !!open;
+    diyRow.classList.toggle("open", diyOpen);
+    colorBtn.setAttribute("aria-pressed", diyOpen ? "true" : "false");
+    colorBtn.setAttribute("aria-expanded", diyOpen ? "true" : "false");
+  }
+
+  // ---- Persistence (self-contained localStorage, no network) --------------
+  function persist() {
+    try {
+      var root = document.documentElement;
+      var data = {
+        theme: root.getAttribute("data-theme") || "dark",
+        ink: inkPick.value,
+        bg: bgPick.value,
+        rainbowOn: rainbowOn,
+        flavor: flavor,
+        sparkleOn: sparkleOn,
+        rbDur: rbDur,
+        rbStops: rbStops.slice()
+      };
+      localStorage.setItem(STORE_KEY, JSON.stringify(data));
+    } catch (e) { /* storage unavailable — silently skip */ }
+  }
+
+  function restore() {
+    var data = null;
+    try {
+      var raw = localStorage.getItem(STORE_KEY);
+      if (raw) data = JSON.parse(raw);
+    } catch (e) { data = null; }
+    if (!data || typeof data !== "object") {
+      setTheme("dark", { silent: true });
+      return;
+    }
+
+    // rainbow settings first (so applyRainbowStyle has the right stops)
+    flavor = (data.flavor === "unicorn") ? "unicorn" : "rainbow";
+    flavorBtn.textContent = (flavor === "unicorn") ? "Unicorn" : "Saturated";
+    sparkleOn = (data.sparkleOn !== false);
+    sparkleBtn.setAttribute("aria-pressed", sparkleOn ? "true" : "false");
+
+    if (typeof data.rbDur === "number" && data.rbDur >= 1 && data.rbDur <= 20) {
+      rbDur = data.rbDur;
+      rbSpeedEl.value = String(rbDur);
+    }
+    if (Array.isArray(data.rbStops) && data.rbStops.length >= 2) {
+      rbStops = data.rbStops.filter(function (c) {
+        return /^#[0-9a-fA-F]{6}$/.test(c);
+      });
+      if (rbStops.length < 2) rbStops = RB_DEFAULTS[flavor].slice();
+    } else {
+      rbStops = RB_DEFAULTS[flavor].slice();
+    }
+    renderStopPickers();
+
+    // theme / custom colours
+    if (data.theme === "custom" &&
+        /^#[0-9a-fA-F]{6}$/.test(data.ink || "") &&
+        /^#[0-9a-fA-F]{6}$/.test(data.bg || "")) {
+      inkPick.value = data.ink;
+      bgPick.value = data.bg;
+      applyCustomColors({ silent: true });
+    } else if (data.theme && THEMES[data.theme]) {
+      setTheme(data.theme, { silent: true });
+    } else {
+      setTheme("dark", { silent: true });
+    }
+
+    // rainbow on/off last (style already prepared)
+    rainbowOn = !!data.rainbowOn;
+    rainbowBtn.setAttribute("aria-pressed", rainbowOn ? "true" : "false");
+    if (rainbowOn) applyRainbowStyle();
+    applyRainbowClasses();
+  }
+
+  // ---- Wire up DIY controls -----------------------------------------------
+  rainbowBtn.addEventListener("click", function () { setRainbow(!rainbowOn); });
+
+  colorBtn.addEventListener("click", function () { setDiyOpen(!diyOpen); });
+
+  inkPick.addEventListener("input", function () { applyCustomColors(); });
+  bgPick.addEventListener("input", function () { applyCustomColors(); });
+
+  resetColorBtn.addEventListener("click", function () {
+    setTheme("dark");
+  });
+
+  flavorBtn.addEventListener("click", function () {
+    setFlavor(flavor === "unicorn" ? "rainbow" : "unicorn");
+  });
+
+  sparkleBtn.addEventListener("click", function () { setSparkle(!sparkleOn); });
+
+  rbSpeedEl.addEventListener("input", function () {
+    var v = parseFloat(rbSpeedEl.value);
+    if (!isNaN(v) && v >= 1) {
+      rbDur = v;
+      // live: just update the CSS var; the running animation re-times smoothly
+      display.style.setProperty("--rb-dur", rbDur + "s");
+      persist();
+    }
   });
 
   // ---- Scroll controls -----------------------------------------------------
@@ -1015,7 +1530,6 @@
     setDirection(!dirRTL);
   });
 
-  // Live speed: constant px/s, applied smoothly — phase preserved, no rebuild.
   speedEl.addEventListener("input", function () {
     var v = parseFloat(speedEl.value);
     if (!isNaN(v) && v > 0) {
@@ -1047,10 +1561,8 @@
     var icon = document.getElementById("fsIcon");
     if (!icon) return;
     if (isFullscreen()) {
-      // "collapse" glyph
       icon.innerHTML = '<path d="M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M16 21v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>';
     } else {
-      // "expand" glyph
       icon.innerHTML = '<path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M16 21h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>';
     }
   }
@@ -1073,19 +1585,17 @@
   });
 
   // ---- Keyboard ------------------------------------------------------------
-  // Field-scoped keys
   field.addEventListener("keydown", function (e) {
     if (e.key === "Enter") {
       e.preventDefault();
       setValue(field.value);
-      field.blur(); // commit; lets controls fade so the value shines
+      field.blur();
     } else if (e.key === "Escape") {
       e.preventDefault();
       clearValue();
     }
   });
 
-  // Global keys (when not typing in the field)
   document.addEventListener("keydown", function (e) {
     var typing = (document.activeElement === field);
 
@@ -1096,27 +1606,44 @@
     }
 
     if (!typing) {
-      // F => fullscreen
+      // Single-letter shortcuts still fire even while another control is
+      // focused (toggling rainbow/scroll/etc. from anywhere is expected).
       if (e.key === "f" || e.key === "F") {
         e.preventDefault();
         toggleFullscreen();
         return;
       }
-      // S => toggle scroll mode
       if (e.key === "s" || e.key === "S") {
         e.preventDefault();
         setScroll(!scrollOn);
         return;
       }
-      // start typing on any printable key (focus the field, let it receive input)
-      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (e.key === "r" || e.key === "R") {
+        e.preventDefault();
+        setRainbow(!rainbowOn);
+        return;
+      }
+      if (e.key === "c" || e.key === "C") {
+        e.preventDefault();
+        setDiyOpen(!diyOpen);
+        peek();
+        return;
+      }
+      // Type-to-focus: a printable key jumps into the value field — BUT not
+      // when the user is interacting with another DIY control (a colour
+      // picker, the Flow/Speed range, or a chip/button). Without this guard
+      // typing a single char while adjusting the rainbow palette would yank
+      // focus to #field and disrupt the DIY interaction.
+      var ae = document.activeElement;
+      var inOtherControl = ae && ae !== field &&
+        /^(INPUT|BUTTON|SELECT|TEXTAREA)$/.test(ae.tagName);
+      if (!inOtherControl &&
+          e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
         field.focus();
-        // do not preventDefault — let the character land in the field
       }
     }
   });
 
-  // Briefly reveal controls when interacting via keyboard, for discoverability
   function peek() {
     app.classList.add("peek");
     clearTimeout(peek._t);
@@ -1125,34 +1652,47 @@
   field.addEventListener("focus", function () { app.classList.add("peek"); });
   field.addEventListener("blur", function () {
     clearTimeout(peek._t);
-    peek._t = setTimeout(function () { app.classList.remove("peek"); }, 400);
+    peek._t = setTimeout(function () {
+      // Keep the controls revealed while the DIY drawer is open, otherwise the
+      // drawer's own pickers/sliders would fade out from under the user as soon
+      // as focus leaves the value field.
+      if (!diyRow.classList.contains("open")) app.classList.remove("peek");
+    }, 400);
   });
 
   // ---- Resize / orientation: re-fit ----------------------------------------
   window.addEventListener("resize", scheduleFit, { passive: true });
   window.addEventListener("orientationchange", scheduleFit, { passive: true });
 
-  // ResizeObserver is the most reliable trigger for stage size changes.
   if (typeof ResizeObserver !== "undefined") {
     var ro = new ResizeObserver(scheduleFit);
     ro.observe(stage);
   }
 
-  // Re-fit once web/system fonts settle (metrics can shift slightly).
   if (document.fonts && document.fonts.ready && typeof document.fonts.ready.then === "function") {
     document.fonts.ready.then(scheduleFit).catch(function () {});
   }
 
   // ---- Init ----------------------------------------------------------------
-  setTheme("dark");
-  setDirection(false);        // default: left-to-right (content travels right)
+  // 1) Build the data-driven theme CSS + swatches from the registry.
+  renderThemeStyles();
+  renderSwatches();
+  // 2) Reflect the default flavor/sparkle state into their buttons so a FRESH
+  //    load (no stored data, restore() early-returns) shows correct pressed
+  //    states. restore() overrides these when persisted settings exist.
+  flavorBtn.textContent = (flavor === "unicorn") ? "Unicorn" : "Saturated";
+  sparkleBtn.setAttribute("aria-pressed", sparkleOn ? "true" : "false");
+  // 3) Default rainbow stop pickers (restore() may replace them).
+  renderStopPickers();
+  // 4) Restore persisted DIY settings (theme/custom colours/rainbow), else dark.
+  restore();
+  // 4) Scroll defaults.
+  setDirection(false);
+  // 5) Seed the value.
   field.value = "996";
-  // Commit "996" as a REAL value at full strength (not the dimmed placeholder
-  // branch). This is the instant wow-moment the brief wants.
   setValue("996", { silentAnim: true });
   syncFsIcon();
 
-  // Fit now and again on the next frame (after layout has fully settled).
   fit();
   requestAnimationFrame(fit);
   window.addEventListener("load", scheduleFit);
