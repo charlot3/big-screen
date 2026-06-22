@@ -1,0 +1,1162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="dark light" />
+<meta name="theme-color" content="#0a0a0b" />
+<title>BIG</title>
+<style>
+  :root {
+    --bg: #0a0a0b;
+    --ink: #fafafa;
+    --muted: rgba(250, 250, 250, 0.40);
+    --muted-strong: rgba(250, 250, 250, 0.62);
+    --chip-bg: rgba(250, 250, 250, 0.05);
+    --chip-bg-hover: rgba(250, 250, 250, 0.11);
+    --chip-border: rgba(250, 250, 250, 0.14);
+    --field-bg: rgba(250, 250, 250, 0.06);
+    --field-focus: rgba(250, 250, 250, 0.30);
+    --accent: var(--ink);
+    --glow: rgba(0, 0, 0, 0.30);
+  }
+
+  [data-theme="light"] {
+    --bg: #fbfbfa;
+    --ink: #0c0c0d;
+    --muted: rgba(12, 12, 13, 0.42);
+    --muted-strong: rgba(12, 12, 13, 0.66);
+    --chip-bg: rgba(12, 12, 13, 0.045);
+    --chip-bg-hover: rgba(12, 12, 13, 0.10);
+    --chip-border: rgba(12, 12, 13, 0.14);
+    --field-bg: rgba(12, 12, 13, 0.05);
+    --field-focus: rgba(12, 12, 13, 0.34);
+    --glow: rgba(0, 0, 0, 0.10);
+  }
+
+  [data-theme="paper"] {
+    --bg: #f4efe6;
+    --ink: #1b1813;
+    --muted: rgba(27, 24, 19, 0.40);
+    --muted-strong: rgba(27, 24, 19, 0.64);
+    --chip-bg: rgba(27, 24, 19, 0.05);
+    --chip-bg-hover: rgba(27, 24, 19, 0.11);
+    --chip-border: rgba(27, 24, 19, 0.16);
+    --field-bg: rgba(27, 24, 19, 0.05);
+    --field-focus: rgba(27, 24, 19, 0.34);
+    --glow: rgba(0, 0, 0, 0.12);
+  }
+
+  [data-theme="ink"] {
+    --bg: #06121f;
+    --ink: #eaf2fb;
+    --muted: rgba(234, 242, 251, 0.42);
+    --muted-strong: rgba(234, 242, 251, 0.64);
+    --chip-bg: rgba(234, 242, 251, 0.06);
+    --chip-bg-hover: rgba(234, 242, 251, 0.13);
+    --chip-border: rgba(234, 242, 251, 0.16);
+    --field-bg: rgba(234, 242, 251, 0.07);
+    --field-focus: rgba(234, 242, 251, 0.34);
+    --glow: rgba(0, 0, 0, 0.40);
+  }
+
+  /* Bold high-contrast accent theme (grafted from the "signage" candidate) */
+  [data-theme="neon"] {
+    --bg: #050505;
+    --ink: #39ff14;
+    --muted: rgba(57, 255, 20, 0.40);
+    --muted-strong: rgba(57, 255, 20, 0.62);
+    --chip-bg: rgba(57, 255, 20, 0.06);
+    --chip-bg-hover: rgba(57, 255, 20, 0.14);
+    --chip-border: rgba(57, 255, 20, 0.22);
+    --field-bg: rgba(57, 255, 20, 0.07);
+    --field-focus: rgba(57, 255, 20, 0.45);
+    --glow: rgba(57, 255, 20, 0.22);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow: hidden;
+    transition: background-color 360ms ease, color 360ms ease;
+  }
+
+  #app {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ---- Stage (the BIG value) ---- */
+  #stage {
+    flex: 1 1 auto;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* breathing room so the giant text never kisses the edges */
+    padding: clamp(14px, 3.2vmin, 44px);
+    /* leave space at the bottom so the value never sits under the controls */
+    padding-bottom: clamp(72px, 14vmin, 132px);
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  #display {
+    display: block;
+    max-width: 100%;
+    line-height: 0.94;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: "tnum" 1, "lnum" 1;
+    white-space: nowrap;        /* short values: one crisp line */
+    text-align: center;
+    /* set by JS in px */
+    font-size: 40px;
+    /* subtle depth, grafted from "bold" — never enough to blur the glyphs */
+    text-shadow: 0 1px 0 var(--glow);
+    will-change: transform, opacity;
+    transform: translateZ(0);
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* allow wrapping only for multi-word phrases (toggled by JS) */
+  #display.wrap {
+    white-space: normal;
+    line-height: 0.98;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  /* smooth swap animation */
+  #display.swap {
+    animation: pop 360ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  @keyframes pop {
+    0%   { opacity: 0; transform: translateZ(0) scale(0.965); filter: blur(2px); }
+    100% { opacity: 1; transform: translateZ(0) scale(1);     filter: blur(0); }
+  }
+
+  /* empty-state hint shown inside the stage */
+  #display.empty {
+    color: var(--muted);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    text-shadow: none;
+  }
+
+  /* ---- Scroll / marquee mode ----
+     When active, #display becomes a full-width single-line viewport whose
+     overflow is clipped. Inside it sits #track, a flex row holding two
+     identical copies (#seg) separated by a gap. A CSS @keyframes animation
+     translates the track left by exactly one "unit" (copy width + gap) so the
+     second copy lands precisely where the first began — a seamless loop.
+     animation-duration is set in JS to (unit / speed) so the linear px/s
+     velocity is constant no matter how long the text is. */
+  #display.scroll {
+    white-space: nowrap;
+    max-width: none;
+    width: 100%;
+    overflow: hidden;
+    text-align: left;
+  }
+  /* When the text fits (no scroll needed) we center the single big copy. */
+  #display.scroll.centered {
+    text-align: center;
+  }
+
+  #track {
+    display: inline-flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    white-space: nowrap;
+    will-change: transform;
+    transform: translate3d(0, 0, 0);
+  }
+  /* The animation only runs while the track is marked .run (text overflows). */
+  #track.run {
+    /* Default direction: LEFT-TO-RIGHT — content travels toward the right edge.
+       --unit and animation-duration are set inline by JS. */
+    animation-name: marquee-ltr;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+  }
+  #track.run.rtl {
+    /* RIGHT-TO-LEFT — content travels toward the left edge. */
+    animation-name: marquee-rtl;
+  }
+
+  #track .seg {
+    display: inline-block;
+    white-space: nowrap;
+    flex: 0 0 auto;
+  }
+
+  /* L→R: start one unit to the LEFT, slide to 0 (content moves rightward).
+     At the end-state the duplicate copy occupies exactly the first copy's
+     start position, so the wrap is pixel-identical and invisible. */
+  @keyframes marquee-ltr {
+    from { transform: translate3d(calc(-1 * var(--unit, 0px)), 0, 0); }
+    to   { transform: translate3d(0, 0, 0); }
+  }
+  /* R→L: start at 0, slide one unit to the LEFT (content moves leftward). */
+  @keyframes marquee-rtl {
+    from { transform: translate3d(0, 0, 0); }
+    to   { transform: translate3d(calc(-1 * var(--unit, 0px)), 0, 0); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #display.swap { animation: none; }
+    body { transition: none; }
+    /* The marquee is the user's deliberate, explicit opt-in, so it still
+       scrolls when enabled. We only suppress involuntary motion (the swap
+       pop and the background/color transition above). */
+  }
+
+  /* ---- Controls (quiet, tucked at the bottom, revealed on hover) ---- */
+  #controls {
+    flex: 0 0 auto;
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 16px clamp(14px, 3vw, 34px) calc(16px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+    z-index: 5;
+    opacity: 0.34;
+    transform: translateY(4px);
+    transition: opacity 280ms ease, transform 280ms ease;
+  }
+
+  /* reveal controls on hover, keyboard focus, or when the input is active */
+  #app:hover #controls,
+  #controls:focus-within,
+  #app.peek #controls {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+    max-width: 980px;
+    width: 100%;
+  }
+
+  .chip {
+    appearance: none;
+    border: 1px solid var(--chip-border);
+    background: var(--chip-bg);
+    color: var(--muted-strong);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 560;
+    line-height: 1;
+    padding: 9px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease, transform 120ms ease;
+    white-space: nowrap;
+  }
+  .chip:hover { background: var(--chip-bg-hover); color: var(--ink); }
+  .chip:active { transform: scale(0.96); }
+  .chip:focus-visible {
+    outline: 2px solid var(--field-focus);
+    outline-offset: 2px;
+  }
+  .chip[aria-pressed="true"] {
+    color: var(--ink);
+    border-color: var(--field-focus);
+    background: var(--chip-bg-hover);
+  }
+
+  .input-wrap {
+    position: relative;
+    flex: 1 1 320px;
+    max-width: 520px;
+    min-width: 200px;
+  }
+
+  #field {
+    width: 100%;
+    appearance: none;
+    border: 1px solid var(--chip-border);
+    background: var(--field-bg);
+    color: var(--ink);
+    font: inherit;
+    font-size: 15px;
+    padding: 11px 16px;
+    border-radius: 12px;
+    outline: none;
+    transition: border-color 160ms ease, background-color 160ms ease;
+  }
+  #field::placeholder { color: var(--muted); }
+  #field:focus {
+    border-color: var(--field-focus);
+    background: var(--chip-bg-hover);
+  }
+
+  .iconbtn {
+    appearance: none;
+    border: 1px solid var(--chip-border);
+    background: var(--chip-bg);
+    color: var(--muted-strong);
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease, transform 120ms ease;
+    flex: 0 0 auto;
+  }
+  .iconbtn:hover { background: var(--chip-bg-hover); color: var(--ink); }
+  .iconbtn:active { transform: scale(0.94); }
+  .iconbtn:focus-visible {
+    outline: 2px solid var(--field-focus);
+    outline-offset: 2px;
+  }
+  .iconbtn svg { width: 18px; height: 18px; display: block; }
+  .iconbtn[aria-pressed="true"] {
+    color: var(--ink);
+    border-color: var(--field-focus);
+    background: var(--chip-bg-hover);
+  }
+  .iconbtn:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .swatch {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px solid var(--chip-border);
+    cursor: pointer;
+    padding: 0;
+    appearance: none;
+    transition: transform 120ms ease, box-shadow 160ms ease;
+    position: relative;
+  }
+  .swatch:hover { transform: scale(1.12); }
+  .swatch:focus-visible {
+    outline: 2px solid var(--field-focus);
+    outline-offset: 2px;
+  }
+  .swatch[aria-pressed="true"] {
+    box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--field-focus);
+  }
+  .swatch[data-theme-name="dark"]  { background: #0a0a0b; border-color: rgba(255,255,255,0.28); }
+  .swatch[data-theme-name="light"] { background: #fbfbfa; border-color: rgba(0,0,0,0.22); }
+  .swatch[data-theme-name="paper"] { background: #f4efe6; border-color: rgba(0,0,0,0.18); }
+  .swatch[data-theme-name="ink"]   { background: #06121f; border-color: rgba(255,255,255,0.22); }
+  .swatch[data-theme-name="neon"]  { background: radial-gradient(circle at 30% 30%, #39ff14, #0a0a0a 78%); border-color: rgba(57,255,20,0.45); }
+
+  .spacer { flex: 0 0 auto; width: 8px; }
+
+  /* ---- Scroll-speed control (a real range input, styled to match) ---- */
+  .scrollctl {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+    opacity: 1;
+    transition: opacity 200ms ease;
+  }
+  /* dim the speed cluster when scroll is off — it's not meaningful then */
+  .scrollctl.is-off { opacity: 0.4; }
+
+  .scrollctl .ctl-label {
+    font-size: 11px;
+    font-weight: 560;
+    letter-spacing: 0.02em;
+    color: var(--muted);
+    user-select: none;
+    white-space: nowrap;
+  }
+
+  #speed {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 116px;
+    height: 18px;
+    background: transparent;
+    cursor: pointer;
+    margin: 0;
+  }
+  #speed:disabled { cursor: default; }
+  /* track */
+  #speed::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 999px;
+    background: var(--chip-border);
+  }
+  #speed::-moz-range-track {
+    height: 4px;
+    border-radius: 999px;
+    background: var(--chip-border);
+  }
+  /* thumb */
+  #speed::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    margin-top: -5px; /* center on the 4px track */
+    border-radius: 50%;
+    background: var(--ink);
+    border: 1px solid var(--chip-border);
+    transition: transform 120ms ease;
+  }
+  #speed::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--ink);
+    border: 1px solid var(--chip-border);
+  }
+  #speed:hover::-webkit-slider-thumb { transform: scale(1.12); }
+  #speed:focus-visible { outline: none; }
+  #speed:focus-visible::-webkit-slider-thumb {
+    box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--field-focus);
+  }
+  #speed:focus-visible::-moz-range-thumb {
+    box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--field-focus);
+  }
+
+  .hint {
+    font-size: 11.5px;
+    color: var(--muted);
+    letter-spacing: 0.01em;
+    text-align: center;
+    user-select: none;
+  }
+  .hint kbd {
+    font-family: inherit;
+    font-size: 11px;
+    border: 1px solid var(--chip-border);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    padding: 1px 5px;
+    color: var(--muted-strong);
+  }
+
+  @media (max-width: 560px) {
+    .hint { display: none; }
+    #controls { opacity: 1; transform: none; }
+  }
+</style>
+</head>
+<body>
+  <main id="app">
+    <section id="stage" aria-live="polite">
+      <div id="display" role="status" aria-label="Displayed value">996</div>
+    </section>
+
+    <div id="controls" role="group" aria-label="Controls">
+      <div class="row" id="presetRow">
+        <!-- preset chips injected by JS -->
+      </div>
+
+      <div class="row">
+        <div class="input-wrap">
+          <input
+            id="field"
+            type="text"
+            inputmode="text"
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+            placeholder="Type a value, then Enter…"
+            aria-label="Custom value" />
+        </div>
+
+        <button class="iconbtn" id="clearBtn" type="button" title="Clear (Esc)" aria-label="Clear value">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M18 6 6 18M6 6l12 12"/>
+          </svg>
+        </button>
+
+        <button class="iconbtn" id="fsBtn" type="button" title="Fullscreen (F)" aria-label="Toggle fullscreen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" id="fsIcon">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M16 21h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+          </svg>
+        </button>
+
+        <div class="spacer" aria-hidden="true"></div>
+
+        <!-- Scroll toggle + direction + speed (opt-in marquee mode) -->
+        <button class="chip" id="scrollBtn" type="button" title="Scroll / ticker (S)" aria-label="Toggle scroll mode" aria-pressed="false">Scroll</button>
+
+        <button class="iconbtn" id="dirBtn" type="button" title="Scroll direction" aria-label="Toggle scroll direction" aria-pressed="false" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" id="dirIcon">
+            <path d="M5 12h14M13 6l6 6-6 6"/>
+          </svg>
+        </button>
+
+        <div class="scrollctl is-off" id="scrollCtl">
+          <span class="ctl-label" aria-hidden="true">Speed</span>
+          <input id="speed" type="range" min="20" max="600" step="5" value="120"
+                 aria-label="Scroll speed (pixels per second)" disabled />
+        </div>
+
+        <div class="spacer" aria-hidden="true"></div>
+
+        <div class="row" id="themeRow" role="group" aria-label="Theme" style="gap:6px; width:auto; flex:0 0 auto;">
+          <button class="swatch" type="button" data-theme-name="dark"  title="Dark"  aria-label="Dark theme"></button>
+          <button class="swatch" type="button" data-theme-name="light" title="Light" aria-label="Light theme"></button>
+          <button class="swatch" type="button" data-theme-name="paper" title="Paper" aria-label="Paper theme"></button>
+          <button class="swatch" type="button" data-theme-name="ink"   title="Ink"   aria-label="Ink theme"></button>
+          <button class="swatch" type="button" data-theme-name="neon"  title="Neon"  aria-label="Neon theme"></button>
+        </div>
+      </div>
+
+      <div class="hint" aria-hidden="true">
+        <kbd>Enter</kbd> show &nbsp;·&nbsp; <kbd>Esc</kbd> clear &nbsp;·&nbsp; <kbd>S</kbd> scroll &nbsp;·&nbsp; <kbd>F</kbd> fullscreen
+      </div>
+    </div>
+  </main>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---- Elements ----
+  var app       = document.getElementById("app");
+  var stage     = document.getElementById("stage");
+  var display   = document.getElementById("display");
+  var field     = document.getElementById("field");
+  var presetRow = document.getElementById("presetRow");
+  var clearBtn  = document.getElementById("clearBtn");
+  var fsBtn     = document.getElementById("fsBtn");
+  var themeRow  = document.getElementById("themeRow");
+  var scrollBtn = document.getElementById("scrollBtn");
+  var dirBtn    = document.getElementById("dirBtn");
+  var scrollCtl = document.getElementById("scrollCtl");
+  var speedEl   = document.getElementById("speed");
+
+  var PLACEHOLDER = "Type anything";
+
+  // ---- Presets (trivial to edit later) ----
+  var PRESETS = ["996", "100", "42", "yes", "GO", "∞"];
+
+  PRESETS.forEach(function (val) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip";
+    b.textContent = val;
+    b.setAttribute("data-value", val);
+    b.addEventListener("click", function () {
+      field.value = val;
+      setValue(val, { fromPreset: true });
+    });
+    presetRow.appendChild(b);
+  });
+  var presetChips = Array.prototype.slice.call(presetRow.querySelectorAll(".chip"));
+
+  // ---- State ----
+  var current = "";          // the value currently displayed ("" => empty state)
+  var rafId = null;          // pending fit frame
+
+  // ---- Scroll / marquee state ----
+  var scrollOn  = false;                            // opt-in; OFF by default
+  var dirRTL    = false;                            // false => LEFT-TO-RIGHT (default)
+  var speedPxs  = parseFloat(speedEl.value) || 120; // constant px/second
+  var track     = null;                             // the two-copy flex row
+  var seg       = null;                             // primary (a11y-visible) copy
+  var seg2      = null;                             // decorative duplicate copy
+  var unit      = 0;                                // loop distance: copy width + gap (px)
+
+  // ---- Auto-fit typography -------------------------------------------------
+  // Binary-search the largest font-size such that the text fits within the
+  // stage's content box in BOTH width and height. Works for numbers, short
+  // words, and multi-word phrases (which are allowed to wrap).
+  function availableBox() {
+    var cs = getComputedStyle(stage);
+    var padL = parseFloat(cs.paddingLeft)   || 0;
+    var padR = parseFloat(cs.paddingRight)  || 0;
+    var padT = parseFloat(cs.paddingTop)    || 0;
+    var padB = parseFloat(cs.paddingBottom) || 0;
+    var w = stage.clientWidth  - padL - padR;
+    var h = stage.clientHeight - padT - padB;
+    return {
+      w: Math.max(10, w),
+      h: Math.max(10, h)
+    };
+  }
+
+  function fits(box) {
+    // scrollWidth/Height reflect the full rendered extent of the text.
+    // A 0.5px slack absorbs sub-pixel rounding so we never falsely "fit".
+    return (display.scrollWidth  <= box.w + 0.5) &&
+           (display.scrollHeight <= box.h + 0.5);
+  }
+
+  function fit() {
+    rafId = null;
+
+    var box = availableBox();
+    if (box.w <= 0 || box.h <= 0) return;
+
+    // Scroll mode is a different sizing problem (height-only + marquee build).
+    if (scrollOn) { fitScroll(box); return; }
+
+    var text = (current.length ? current : PLACEHOLDER);
+
+    // Decide wrapping: phrases with whitespace may wrap to use vertical space.
+    var multiWord = /\s/.test(text.trim());
+    display.classList.toggle("wrap", multiWord);
+
+    // Cap font size to the box height (a single line can't exceed the box).
+    // Adaptive ceiling (idea grafted from "signage") so very large / 4K
+    // viewports still let a single short glyph grow truly huge.
+    var MIN = 8;
+    var MAX = Math.max(MIN + 1, Math.min(Math.max(box.h, box.w) * 1.6, 4000));
+
+    // Quick exit: if even MIN doesn't fit, clamp to MIN.
+    display.style.fontSize = MIN + "px";
+    if (!fits(box)) {
+      display.style.fontSize = MIN + "px";
+      return;
+    }
+
+    var lo = MIN;
+    var hi = MAX;
+
+    // Binary search (~22 iterations gives sub-pixel precision over the range).
+    for (var i = 0; i < 22 && (hi - lo) > 0.5; i++) {
+      var mid = (lo + hi) / 2;
+      display.style.fontSize = mid + "px";
+      if (fits(box)) {
+        lo = mid;          // fits => try bigger
+      } else {
+        hi = mid;          // overflow => go smaller
+      }
+    }
+
+    // Land on the largest known-good size.
+    display.style.fontSize = lo + "px";
+  }
+
+  function scheduleFit() {
+    if (rafId !== null) return;
+    rafId = requestAnimationFrame(fit);
+  }
+
+  // ---- Scroll-mode height-fit + seamless CSS-keyframe marquee --------------
+  // Build the two-copy track inside #display so the loop is invisible. The
+  // first copy is the a11y-visible value; the second is a decorative duplicate.
+  function buildScrollDOM() {
+    display.textContent = "";
+    track = document.createElement("div");
+    track.id = "track";
+
+    seg = document.createElement("span");
+    seg.className = "seg";
+
+    seg2 = document.createElement("span");
+    seg2.className = "seg";
+    seg2.setAttribute("aria-hidden", "true"); // duplicate copy: hide from SR
+
+    track.appendChild(seg);
+    track.appendChild(seg2);
+    display.appendChild(track);
+  }
+
+  // Height-fit: size glyphs as big as the stage HEIGHT allows for a single
+  // line, IGNORING width — so long text stays big and scrolls instead of
+  // shrinking. Then measure the rendered single-line width to derive the
+  // seamless loop distance and the CSS animation-duration (distance / speed).
+  function fitScroll(box) {
+    if (!box) box = availableBox();
+    if (box.w <= 0 || box.h <= 0) return;
+
+    var text = (current.length ? current : PLACEHOLDER);
+
+    // (Re)build the DOM if missing (first entry into scroll mode).
+    if (!track || !seg || !seg2 || !display.contains(track)) {
+      buildScrollDOM();
+    }
+    // Always refresh both copies' text to the current value.
+    seg.textContent = text;
+    seg2.textContent = text;
+
+    // empty-state styling reuses the existing .empty class on #display.
+    display.classList.toggle("empty", current.length === 0);
+
+    // --- Height-only binary search on the single copy's height. ---
+    // Measure seg.scrollHeight (single line, nowrap) against box.h ONLY, so
+    // width never shrinks the glyphs. Set the size on #display so all metrics
+    // (line-height etc.) match the normal mode; the copies inherit it.
+    var MIN = 8;
+    var MAX = Math.max(MIN + 1, Math.min(box.h * 1.6, 4000));
+
+    display.style.fontSize = MIN + "px";
+    if (seg.scrollHeight > box.h + 0.5) {
+      display.style.fontSize = MIN + "px";
+    } else {
+      var lo = MIN, hi = MAX;
+      for (var i = 0; i < 22 && (hi - lo) > 0.5; i++) {
+        var mid = (lo + hi) / 2;
+        display.style.fontSize = mid + "px";
+        if (seg.scrollHeight <= box.h + 0.5) {
+          lo = mid;     // fits in height => grow
+        } else {
+          hi = mid;     // too tall => shrink
+        }
+      }
+      display.style.fontSize = lo + "px";
+    }
+
+    // --- Measure the rendered single-line width at the chosen size. ---
+    var fontPx = parseFloat(getComputedStyle(display).fontSize) || 40;
+    var segWidth = seg.getBoundingClientRect().width;
+
+    // Does the single line overflow the stage width? Only then do we scroll.
+    var needScroll = (segWidth > box.w + 0.5);
+
+    if (!needScroll) {
+      // Fits — no scrolling. Center it big, with NO visible duplicate and no
+      // motion. Collapse the gap, hide the second copy, and clear the anim.
+      stopMarquee();
+      display.classList.add("centered");
+      track.style.gap = "0px";
+      track.style.removeProperty("--unit");
+      seg2.style.display = "none";        // suppress the decorative duplicate
+      unit = 0;
+      return;
+    }
+
+    // Overflows — run the seamless two-copy marquee.
+    display.classList.remove("centered");
+    seg2.style.display = "";              // re-show the duplicate
+
+    // Gap between the two copies so the looped text doesn't butt against
+    // itself; scales with font for a size-proportional breather.
+    var gap = Math.max(fontPx * 0.6, 24);
+    track.style.gap = gap + "px";
+
+    // Loop distance: one copy + one gap. After the keyframe translates the
+    // track by exactly this much, copy #2 sits precisely where copy #1 began,
+    // so the loop boundary is pixel-identical (invisible seam).
+    var prevUnit = unit;
+    var wasRunning = track.classList.contains("run");
+    unit = segWidth + gap;
+
+    // PHASE-PRESERVING RE-FIT: if the marquee was already running and the loop
+    // distance is effectively unchanged (a re-fit triggered by resize/theme/
+    // fonts.ready/ResizeObserver that recomputed the SAME size), do NOT do the
+    // reflow-restart — that would snap the scroll back to its start. Instead
+    // re-anchor in place, preserving the current visual phase. Only fall back
+    // to a fresh restart when the distance actually changed or we're starting
+    // from a stopped state.
+    if (wasRunning && Math.abs(unit - prevUnit) < 0.5) {
+      reanchorMarquee();
+    } else {
+      startMarquee();
+    }
+  }
+
+  // Start (or restart) the CSS-keyframe marquee FRESH for the current `unit`,
+  // direction and speed. Duration = unit / speed => constant linear px/s for
+  // any text length. Used on first entry, value change, direction change, or
+  // when the loop distance actually changed — the keyframe begins at `from`.
+  function startMarquee() {
+    if (!track || unit <= 0) return;
+
+    var duration = unit / speedPxs;        // seconds
+    if (!isFinite(duration) || duration <= 0) duration = 0.001;
+
+    track.style.setProperty("--unit", unit + "px");
+    track.style.animationDuration = duration + "s";
+    track.style.removeProperty("animation-delay"); // fresh phase from `from`
+    track.classList.toggle("rtl", dirRTL);
+
+    // Restart cleanly: drop .run, force reflow, re-add so the keyframe begins
+    // at its `from` state (seamless, no startup jump).
+    track.classList.remove("run");
+    void track.offsetWidth;                // reflow to reset the animation
+    track.classList.add("run");
+  }
+
+  // Re-anchor an ALREADY-RUNNING marquee to the current `unit`/speed WITHOUT a
+  // reflow-restart, preserving its current visual phase. This is the fix for
+  // the re-fit-snaps-to-start bug: resize / theme / fonts.ready / ResizeObserver
+  // re-runs fitScroll(), and when the loop distance is unchanged we must keep
+  // scrolling smoothly rather than yanking back to the start.
+  function reanchorMarquee() {
+    if (!track || unit <= 0) return;
+
+    var duration = unit / speedPxs;        // seconds
+    if (!isFinite(duration) || duration <= 0) duration = 0.001;
+
+    // Capture progress BEFORE mutating --unit/duration (currentProgress reads
+    // the live transform against the current --unit).
+    var frac = currentProgress();
+
+    track.style.setProperty("--unit", unit + "px");
+    track.classList.toggle("rtl", dirRTL);
+    track.style.animationDuration = duration + "s";
+    // Negative delay pre-seeks the animation to `frac` of the way through, so
+    // it continues from exactly where it was — no jump, no restart, no reflow.
+    track.style.animationDelay = (-(frac * duration)) + "s";
+  }
+
+  // Update only the speed of an already-running marquee, preserving the
+  // current visual phase so dragging the slider doesn't jump. We read the
+  // live computed transform, convert it to a 0..1 progress, set the new
+  // duration, and pre-seek with a negative animation-delay to the same phase.
+  function updateMarqueeSpeed() {
+    if (!track || unit <= 0 || !track.classList.contains("run")) return;
+
+    var duration = unit / speedPxs;        // seconds
+    if (!isFinite(duration) || duration <= 0) duration = 0.001;
+
+    // Derive current progress (0..1) from the live transform translateX.
+    var frac = currentProgress();
+
+    track.style.animationDuration = duration + "s";
+    // Negative delay pre-seeks the animation to `frac` of the way through.
+    track.style.animationDelay = (-(frac * duration)) + "s";
+  }
+
+  // Read the current translateX of the track and map it to animation progress
+  // in [0,1) for the active direction. Used to keep phase across speed changes.
+  function currentProgress() {
+    if (!track || unit <= 0) return 0;
+    var tx = 0;
+    var cs = getComputedStyle(track);
+    var t = cs.transform || cs.webkitTransform;
+    if (t && t !== "none") {
+      // matrix(a,b,c,d,e,f) => e (index 4) is translateX;
+      // matrix3d(...) => translateX is index 12.
+      var is3d = t.indexOf("matrix3d") === 0;
+      var nums = t.replace(/^matrix(3d)?\(/, "").replace(/\)$/, "").split(",");
+      tx = parseFloat(is3d ? nums[12] : nums[4]) || 0;
+    }
+    var frac;
+    if (dirRTL) {
+      // rtl keyframe: 0 -> -unit. progress = (-tx)/unit.
+      frac = (-tx) / unit;
+    } else {
+      // ltr keyframe: -unit -> 0. progress = (tx + unit)/unit.
+      frac = (tx + unit) / unit;
+    }
+    // normalize into [0,1)
+    frac = frac % 1;
+    if (frac < 0) frac += 1;
+    return frac;
+  }
+
+  // Stop the marquee and clear its inline animation state.
+  function stopMarquee() {
+    if (track) {
+      track.classList.remove("run");
+      track.style.removeProperty("animation-delay");
+    }
+  }
+
+  // Enter scroll mode: convert #display into the marquee viewport.
+  function enterScroll() {
+    display.classList.remove("wrap");
+    display.classList.add("scroll");
+    buildScrollDOM();
+    fitScroll();
+  }
+
+  // Exit scroll mode: tear down the marquee and restore the exact prior render.
+  function exitScroll() {
+    stopMarquee();
+    display.classList.remove("scroll", "centered");
+    track = null;
+    seg = null;
+    seg2 = null;
+    unit = 0;
+    // Restore plain text content; the standard fit() path takes over.
+    if (current.length === 0) {
+      display.textContent = PLACEHOLDER;
+      display.classList.add("empty");
+    } else {
+      display.textContent = current;
+      display.classList.remove("empty");
+    }
+    scheduleFit();
+  }
+
+  function setScroll(on) {
+    on = !!on;
+    if (on === scrollOn) return;
+    scrollOn = on;
+    scrollBtn.setAttribute("aria-pressed", on ? "true" : "false");
+    speedEl.disabled = !on;
+    dirBtn.disabled = !on;
+    scrollCtl.classList.toggle("is-off", !on);
+    if (on) {
+      enterScroll();
+    } else {
+      exitScroll();
+    }
+  }
+
+  function setDirection(rtl) {
+    dirRTL = !!rtl;
+    dirBtn.setAttribute("aria-pressed", dirRTL ? "true" : "false");
+    // Flip the arrow glyph to reflect travel direction.
+    var icon = document.getElementById("dirIcon");
+    if (icon) {
+      icon.innerHTML = dirRTL
+        ? '<path d="M19 12H5M11 6l-6 6 6 6"/>'   // ←  (content travels left)
+        : '<path d="M5 12h14M13 6l6 6-6 6"/>';   // →  (content travels right)
+    }
+    // Re-seat the marquee so the direction change starts cleanly (no pop).
+    if (scrollOn && unit > 0 && track && track.classList.contains("run")) {
+      startMarquee();
+    }
+  }
+
+  // ---- Set / render value --------------------------------------------------
+  function setValue(raw, opts) {
+    opts = opts || {};
+    var val = (raw == null) ? "" : String(raw);
+
+    // collapse runs of whitespace but keep single spaces between words
+    var normalized = val.replace(/[ \t]+/g, " ").replace(/\s*\n\s*/g, " ").trim();
+
+    var changed = normalized !== current;
+    current = normalized;
+
+    if (scrollOn) {
+      // In scroll mode the visible text lives inside the copies, not in
+      // #display's direct textContent. fitScroll() refreshes the copies and
+      // re-derives the height-fit + loop distance. The empty-state class is
+      // also set there. We keep the swap pop on #display for an actual change.
+      if (changed && !opts.silentAnim) {
+        display.classList.remove("swap");
+        void display.offsetWidth; // reflow to restart the animation
+        display.classList.add("swap");
+      }
+      updatePressedPresets();
+      scheduleFit();
+      return;
+    }
+
+    if (current.length === 0) {
+      display.textContent = PLACEHOLDER;
+      display.classList.add("empty");
+    } else {
+      display.textContent = current;
+      display.classList.remove("empty");
+    }
+
+    // swap animation only on an actual change (and respect reduced motion)
+    if (changed && !opts.silentAnim) {
+      display.classList.remove("swap");
+      // reflow to restart the animation
+      void display.offsetWidth;
+      display.classList.add("swap");
+    }
+
+    updatePressedPresets();
+    scheduleFit();
+  }
+
+  function updatePressedPresets() {
+    presetChips.forEach(function (chip) {
+      var match = chip.getAttribute("data-value") === current && current.length > 0;
+      chip.setAttribute("aria-pressed", match ? "true" : "false");
+    });
+  }
+
+  // ---- Theme ---------------------------------------------------------------
+  var swatches = Array.prototype.slice.call(themeRow.querySelectorAll(".swatch"));
+
+  function setTheme(name) {
+    document.documentElement.setAttribute("data-theme", name);
+    swatches.forEach(function (s) {
+      s.setAttribute("aria-pressed", s.getAttribute("data-theme-name") === name ? "true" : "false");
+    });
+    // theme change can affect available box via font rendering; re-fit defensively
+    scheduleFit();
+  }
+
+  swatches.forEach(function (s) {
+    s.addEventListener("click", function () {
+      setTheme(s.getAttribute("data-theme-name"));
+    });
+  });
+
+  // ---- Scroll controls -----------------------------------------------------
+  scrollBtn.addEventListener("click", function () {
+    setScroll(!scrollOn);
+  });
+
+  dirBtn.addEventListener("click", function () {
+    if (dirBtn.disabled) return;
+    setDirection(!dirRTL);
+  });
+
+  // Live speed: constant px/s, applied smoothly — phase preserved, no rebuild.
+  speedEl.addEventListener("input", function () {
+    var v = parseFloat(speedEl.value);
+    if (!isNaN(v) && v > 0) {
+      speedPxs = v;
+      updateMarqueeSpeed();
+    }
+  });
+
+  // ---- Fullscreen ----------------------------------------------------------
+  function isFullscreen() {
+    return !!(document.fullscreenElement || document.webkitFullscreenElement);
+  }
+  function toggleFullscreen() {
+    try {
+      if (!isFullscreen()) {
+        var el = document.documentElement;
+        var req = el.requestFullscreen || el.webkitRequestFullscreen;
+        if (req) { req.call(el); }
+      } else {
+        var exit = document.exitFullscreen || document.webkitExitFullscreen;
+        if (exit) { exit.call(document); }
+      }
+    } catch (e) {
+      /* fullscreen not available — no-op */
+    }
+  }
+
+  function syncFsIcon() {
+    var icon = document.getElementById("fsIcon");
+    if (!icon) return;
+    if (isFullscreen()) {
+      // "collapse" glyph
+      icon.innerHTML = '<path d="M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M16 21v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>';
+    } else {
+      // "expand" glyph
+      icon.innerHTML = '<path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M16 21h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>';
+    }
+  }
+
+  fsBtn.addEventListener("click", toggleFullscreen);
+  document.addEventListener("fullscreenchange", function () { syncFsIcon(); scheduleFit(); });
+  document.addEventListener("webkitfullscreenchange", function () { syncFsIcon(); scheduleFit(); });
+
+  // ---- Clear ---------------------------------------------------------------
+  function clearValue() {
+    field.value = "";
+    setValue("");
+    field.focus();
+  }
+  clearBtn.addEventListener("click", clearValue);
+
+  // ---- Input: live as you type ---------------------------------------------
+  field.addEventListener("input", function () {
+    setValue(field.value);
+  });
+
+  // ---- Keyboard ------------------------------------------------------------
+  // Field-scoped keys
+  field.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      setValue(field.value);
+      field.blur(); // commit; lets controls fade so the value shines
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      clearValue();
+    }
+  });
+
+  // Global keys (when not typing in the field)
+  document.addEventListener("keydown", function (e) {
+    var typing = (document.activeElement === field);
+
+    if (e.key === "Escape" && !typing) {
+      e.preventDefault();
+      clearValue();
+      return;
+    }
+
+    if (!typing) {
+      // F => fullscreen
+      if (e.key === "f" || e.key === "F") {
+        e.preventDefault();
+        toggleFullscreen();
+        return;
+      }
+      // S => toggle scroll mode
+      if (e.key === "s" || e.key === "S") {
+        e.preventDefault();
+        setScroll(!scrollOn);
+        return;
+      }
+      // start typing on any printable key (focus the field, let it receive input)
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        field.focus();
+        // do not preventDefault — let the character land in the field
+      }
+    }
+  });
+
+  // Briefly reveal controls when interacting via keyboard, for discoverability
+  function peek() {
+    app.classList.add("peek");
+    clearTimeout(peek._t);
+    peek._t = setTimeout(function () { app.classList.remove("peek"); }, 1600);
+  }
+  field.addEventListener("focus", function () { app.classList.add("peek"); });
+  field.addEventListener("blur", function () {
+    clearTimeout(peek._t);
+    peek._t = setTimeout(function () { app.classList.remove("peek"); }, 400);
+  });
+
+  // ---- Resize / orientation: re-fit ----------------------------------------
+  window.addEventListener("resize", scheduleFit, { passive: true });
+  window.addEventListener("orientationchange", scheduleFit, { passive: true });
+
+  // ResizeObserver is the most reliable trigger for stage size changes.
+  if (typeof ResizeObserver !== "undefined") {
+    var ro = new ResizeObserver(scheduleFit);
+    ro.observe(stage);
+  }
+
+  // Re-fit once web/system fonts settle (metrics can shift slightly).
+  if (document.fonts && document.fonts.ready && typeof document.fonts.ready.then === "function") {
+    document.fonts.ready.then(scheduleFit).catch(function () {});
+  }
+
+  // ---- Init ----------------------------------------------------------------
+  setTheme("dark");
+  setDirection(false);        // default: left-to-right (content travels right)
+  field.value = "996";
+  // Commit "996" as a REAL value at full strength (not the dimmed placeholder
+  // branch). This is the instant wow-moment the brief wants.
+  setValue("996", { silentAnim: true });
+  syncFsIcon();
+
+  // Fit now and again on the next frame (after layout has fully settled).
+  fit();
+  requestAnimationFrame(fit);
+  window.addEventListener("load", scheduleFit);
+})();
+</script>
+</body>
+</html>
