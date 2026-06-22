@@ -4,7 +4,18 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="color-scheme" content="dark light" />
-<meta name="theme-color" content="#0a0a0b" />
+<meta name="theme-color" content="#0a0a0b" id="themeColorMeta" />
+<!-- PWA-lite: app metadata + inline icons (no network, single file). The
+     manifest, favicon and apple-touch icon are all data: URIs so "Add to Home
+     Screen" launches the page app-like with NO external requests. -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="BIG" />
+<meta name="application-name" content="BIG" />
+<link rel="manifest" id="manifestLink" href="data:application/manifest+json,%7B%22name%22%3A%22BIG%22%2C%22short_name%22%3A%22BIG%22%2C%22start_url%22%3A%22.%22%2C%22scope%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22orientation%22%3A%22any%22%2C%22background_color%22%3A%22%230a0a0b%22%2C%22theme_color%22%3A%22%230a0a0b%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%2C%253Csvg%2520xmlns%253D%2522http%253A%252F%252Fwww.w3.org%252F2000%252Fsvg%2522%2520viewBox%253D%25220%25200%2520512%2520512%2522%253E%253Crect%2520width%253D%2522512%2522%2520height%253D%2522512%2522%2520rx%253D%252296%2522%2520fill%253D%2522%25230a0a0b%2522%252F%253E%253Ctext%2520x%253D%252250%2525%2522%2520y%253D%252256%2525%2522%2520text-anchor%253D%2522middle%2522%2520dominant-baseline%253D%2522central%2522%2520font-family%253D%2522Arial%252Csans-serif%2522%2520font-weight%253D%2522800%2522%2520font-size%253D%2522320%2522%2520fill%253D%2522%2523fafafa%2522%253EB%253C%252Ftext%253E%253C%252Fsvg%253E%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%2C%22purpose%22%3A%22any%20maskable%22%7D%5D%7D" />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20512%20512%22%3E%3Crect%20width%3D%22512%22%20height%3D%22512%22%20rx%3D%2296%22%20fill%3D%22%230a0a0b%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2256%25%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22central%22%20font-family%3D%22Arial%2Csans-serif%22%20font-weight%3D%22800%22%20font-size%3D%22320%22%20fill%3D%22%23fafafa%22%3EB%3C%2Ftext%3E%3C%2Fsvg%3E" />
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20512%20512%22%3E%3Crect%20width%3D%22512%22%20height%3D%22512%22%20fill%3D%22%230a0a0b%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2256%25%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22central%22%20font-family%3D%22Arial%2Csans-serif%22%20font-weight%3D%22800%22%20font-size%3D%22320%22%20fill%3D%22%23fafafa%22%3EB%3C%2Ftext%3E%3C%2Fsvg%3E" />
 <title>BIG</title>
 <style>
   /* ------------------------------------------------------------------ *
@@ -26,6 +37,9 @@
     --field-focus: rgba(250, 250, 250, 0.30);
     --accent: var(--ink);
     --glow: rgba(0, 0, 0, 0.30);
+    /* adaptive legibility outline for custom colours (auto-contrast guard).
+       Normally invisible; set by JS when a risky custom bg/ink is chosen. */
+    --ink-guard: 0 0 0 transparent;
   }
 
   * { box-sizing: border-box; }
@@ -79,12 +93,23 @@
     text-align: center;
     /* set by JS in px */
     font-size: 40px;
-    /* subtle depth, grafted from "bold" — never enough to blur the glyphs */
-    text-shadow: 0 1px 0 var(--glow);
+    /* subtle depth, grafted from "bold" — never enough to blur the glyphs.
+       --ink-guard layers an adaptive contrast outline on top when needed. */
+    text-shadow: 0 1px 0 var(--glow), var(--ink-guard);
     will-change: transform, opacity;
     transform: translateZ(0);
     user-select: none;
     -webkit-user-select: none;
+  }
+
+  /* TIME MODES: lock to tabular figures so the width never jitters tick to
+     tick. (The base already requests tnum; we re-assert and harden it for the
+     digit-heavy clock/countdown/stopwatch renders.) */
+  #display.timed,
+  #display.timed .seg {
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: "tnum" 1, "lnum" 1;
+    letter-spacing: 0;
   }
 
   /* allow wrapping only for multi-word phrases (toggled by JS) */
@@ -102,6 +127,14 @@
   @keyframes pop {
     0%   { opacity: 0; transform: translateZ(0) scale(0.965); filter: blur(2px); }
     100% { opacity: 1; transform: translateZ(0) scale(1);     filter: blur(0); }
+  }
+
+  /* COUNTDOWN "DONE" celebration flash (added/removed by JS). A few quick
+     pulses of the whole stage, honouring reduced-motion below. */
+  #stage.celebrate { animation: celebrate 900ms ease-in-out 0s 2; }
+  @keyframes celebrate {
+    0%, 100% { background: transparent; }
+    50%      { background: var(--accent); }
   }
 
   /* empty-state hint shown inside the stage */
@@ -152,6 +185,8 @@
     /* RIGHT-TO-LEFT — content travels toward the left edge. */
     animation-name: marquee-rtl;
   }
+  /* PERFORMANCE: when the document is hidden we pause the marquee outright. */
+  #track.paused { animation-play-state: paused !important; }
 
   #track .seg {
     display: inline-block;
@@ -215,6 +250,9 @@
     /* kill the depth shadow — it would smear through transparent glyphs */
     text-shadow: none;
   }
+  /* PERFORMANCE: pause the colour flow when the tab is hidden. */
+  #display.rainbow.paused,
+  #display.rainbow.paused .seg { animation-play-state: paused !important; }
   /* the moving marquee transform lives on #track, so the rainbow paint on the
      SEGS must not also carry the transform animation — only the flow. */
 
@@ -287,6 +325,8 @@
     mix-blend-mode: screen;
   }
   #stage.sparkle-on #sparkle { opacity: 0.85; }
+  /* PERFORMANCE: freeze sparkle drift when hidden. */
+  #stage.paused #sparkle { animation-play-state: paused !important; }
 
   /* Empty-state placeholder must stay a quiet, dimmed hint — NOT a celebration.
      When rainbow is on but there is no value, suppress the gradient fill, the
@@ -321,6 +361,7 @@
   @media (prefers-reduced-motion: reduce) {
     #display.swap { animation: none; }
     body { transition: none; }
+    #stage.celebrate { animation: none; }
     /* The marquee is the user's deliberate, explicit opt-in, so it still
        scrolls when enabled. We only suppress involuntary motion (the swap
        pop and the background/color transition above). */
@@ -408,6 +449,27 @@
     color: var(--ink);
   }
 
+  /* ---- Segmented mode selector ---- */
+  .seg-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px;
+    border-radius: 999px;
+    border: 1px solid var(--chip-border);
+    background: var(--chip-bg);
+    flex: 0 0 auto;
+  }
+  .seg-group .chip {
+    border: 1px solid transparent;
+    background: transparent;
+    padding: 7px 13px;
+  }
+  .seg-group .chip[aria-pressed="true"] {
+    background: var(--chip-bg-hover);
+    border-color: var(--field-focus);
+  }
+
   .input-wrap {
     position: relative;
     flex: 1 1 320px;
@@ -427,12 +489,38 @@
     border-radius: 12px;
     outline: none;
     transition: border-color 160ms ease, background-color 160ms ease;
+    resize: none;
+  }
+  /* The value field becomes a small textarea when Cycle is on (multi-line). */
+  textarea#field {
+    min-height: 44px;
+    max-height: 132px;
+    line-height: 1.35;
+    font-size: 14px;
   }
   #field::placeholder { color: var(--muted); }
   #field:focus {
     border-color: var(--field-focus);
     background: var(--chip-bg-hover);
   }
+
+  /* a compact text field used by countdown duration / target inputs */
+  .minput {
+    appearance: none;
+    border: 1px solid var(--chip-border);
+    background: var(--field-bg);
+    color: var(--ink);
+    font: inherit;
+    font-size: 14px;
+    padding: 8px 11px;
+    border-radius: 10px;
+    outline: none;
+    width: 116px;
+    transition: border-color 160ms ease, background-color 160ms ease;
+    font-variant-numeric: tabular-nums;
+  }
+  .minput:focus { border-color: var(--field-focus); background: var(--chip-bg-hover); }
+  .minput::placeholder { color: var(--muted); }
 
   .iconbtn {
     appearance: none;
@@ -502,7 +590,7 @@
   /* dim the speed cluster when scroll is off — it's not meaningful then */
   .scrollctl.is-off { opacity: 0.4; }
 
-  .scrollctl .ctl-label {
+  .ctl-label {
     font-size: 11px;
     font-weight: 560;
     letter-spacing: 0.02em;
@@ -511,7 +599,7 @@
     white-space: nowrap;
   }
 
-  /* shared range styling — used by both the scroll speed and the rainbow speed */
+  /* shared range styling — used by the scroll, rainbow and cycle speeds */
   input[type="range"].rng {
     appearance: none;
     -webkit-appearance: none;
@@ -558,6 +646,19 @@
   input[type="range"].rng:focus-visible::-moz-range-thumb {
     box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--field-focus);
   }
+
+  /* ---- Mode sub-controls (progressive disclosure) ----
+     Each mode's extra controls live in a row that only shows for that mode. */
+  .moderow {
+    display: none;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    align-items: center;
+    justify-content: center;
+    max-width: 980px;
+    width: 100%;
+  }
+  .moderow.open { display: flex; }
 
   /* ---- DIY color drawer (the expanded "color space") -------------------- *
    *  Tucked away behind the "Color" chip so the default view stays calm.
@@ -634,7 +735,7 @@
     text-align: center;
     user-select: none;
   }
-  .hint kbd {
+  .hint kbd, .help kbd {
     font-family: inherit;
     font-size: 11px;
     border: 1px solid var(--chip-border);
@@ -643,6 +744,72 @@
     padding: 1px 5px;
     color: var(--muted-strong);
   }
+
+  /* tiny "copied!" toast confirmation for Share */
+  #toast {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 10px);
+    transform: translate(-50%, 6px);
+    background: var(--ink);
+    color: var(--bg);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 8px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 200ms ease, transform 200ms ease;
+    z-index: 8;
+  }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  /* ---- Help / shortcuts overlay ---- */
+  #help {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  #help.open { display: flex; }
+  .help {
+    background: var(--bg);
+    color: var(--ink);
+    border: 1px solid var(--chip-border);
+    border-radius: 16px;
+    padding: 22px 24px;
+    max-width: 520px;
+    width: 100%;
+    max-height: 84vh;
+    overflow: auto;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+  }
+  .help h2 {
+    margin: 0 0 4px;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+  }
+  .help p.sub { margin: 0 0 16px; font-size: 12.5px; color: var(--muted); }
+  .help h3 {
+    margin: 16px 0 6px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-weight: 700;
+  }
+  .help dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; align-items: baseline; }
+  .help dt { white-space: nowrap; }
+  .help dd { margin: 0; font-size: 13px; color: var(--muted-strong); }
+  .help .closebar { display: flex; justify-content: flex-end; margin-top: 18px; }
 
   @media (max-width: 560px) {
     .hint { display: none; }
@@ -655,17 +822,33 @@
 </head>
 <body>
   <main id="app">
-    <section id="stage" aria-live="polite">
-      <div id="display" role="status" aria-label="Displayed value">996</div>
+    <section id="stage">
+      <!-- aria-live region: announces the displayed value to assistive tech.
+           Time modes set aria-live to "off" so the screen reader is not flooded
+           by per-second updates; text/cycle keep it polite. -->
+      <div id="display" role="status" aria-live="polite" aria-atomic="true" aria-label="Displayed value">996</div>
       <div id="sparkle" aria-hidden="true"></div>
     </section>
 
     <div id="controls" role="group" aria-label="Controls">
-      <div class="row" id="presetRow">
-        <!-- preset chips injected by JS -->
+      <div id="toast" role="status" aria-live="polite">Link copied</div>
+
+      <!-- Mode selector (segmented) + presets -->
+      <div class="row" id="topRow">
+        <div class="seg-group" id="modeRow" role="group" aria-label="Display mode">
+          <button class="chip" type="button" data-mode="text"      aria-pressed="true"  title="Text mode">Text</button>
+          <button class="chip" type="button" data-mode="clock"     aria-pressed="false" title="Live clock">Clock</button>
+          <button class="chip" type="button" data-mode="countdown" aria-pressed="false" title="Countdown timer">Countdown</button>
+          <button class="chip" type="button" data-mode="stopwatch" aria-pressed="false" title="Stopwatch">Stopwatch</button>
+        </div>
+        <div class="spacer" aria-hidden="true"></div>
+        <div class="row" id="presetRow" style="width:auto; flex:1 1 auto;">
+          <!-- preset chips injected by JS -->
+        </div>
       </div>
 
-      <div class="row">
+      <!-- ===== TEXT-mode row (input + cycle) ===== -->
+      <div class="moderow open" id="textRow">
         <div class="input-wrap">
           <input
             id="field"
@@ -674,7 +857,7 @@
             autocomplete="off"
             autocapitalize="off"
             spellcheck="false"
-            placeholder="Type a value, then Enter…"
+            placeholder="Type anything, then Enter…"
             aria-label="Custom value" />
         </div>
 
@@ -684,6 +867,48 @@
           </svg>
         </button>
 
+        <div class="spacer" aria-hidden="true"></div>
+
+        <!-- Auto-cycle / playlist -->
+        <button class="chip" id="cycleBtn" type="button" title="Auto-cycle through lines (one value per line)" aria-label="Toggle auto-cycle" aria-pressed="false">Cycle</button>
+        <div class="scrollctl is-off" id="cycleCtl">
+          <span class="ctl-label" aria-hidden="true">Every</span>
+          <input id="cycleSpeed" class="rng" type="range" min="1" max="30" step="1" value="4"
+                 aria-label="Cycle interval (seconds)" style="width:96px;" disabled />
+          <span class="ctl-label" id="cycleSecLabel" aria-hidden="true">4s</span>
+        </div>
+      </div>
+
+      <!-- ===== COUNTDOWN-mode row ===== -->
+      <div class="moderow" id="countdownRow">
+        <span class="ctl-label" aria-hidden="true">Duration</span>
+        <input class="minput" id="cdDuration" type="text" inputmode="numeric"
+               autocomplete="off" spellcheck="false"
+               placeholder="mm:ss" aria-label="Countdown duration (mm:ss or hh:mm:ss)" />
+        <span class="ctl-label" aria-hidden="true">or at</span>
+        <input class="minput" id="cdTarget" type="text" inputmode="numeric"
+               autocomplete="off" spellcheck="false"
+               placeholder="HH:MM" aria-label="Countdown target clock time (HH:MM)" style="width:92px;" />
+        <button class="chip" id="cdStartBtn" type="button" aria-label="Start or pause countdown">Start</button>
+        <button class="chip" id="cdResetBtn" type="button" aria-label="Reset countdown">Reset</button>
+        <button class="chip" id="cdLoopBtn" type="button" aria-pressed="false" aria-label="Toggle countdown loop" title="Repeat when it reaches zero">Loop</button>
+      </div>
+
+      <!-- ===== STOPWATCH-mode row ===== -->
+      <div class="moderow" id="stopwatchRow">
+        <button class="chip" id="swStartBtn" type="button" aria-label="Start or pause stopwatch">Start</button>
+        <button class="chip" id="swResetBtn" type="button" aria-label="Reset stopwatch">Reset</button>
+        <span class="ctl-label" aria-hidden="true">Space starts / pauses</span>
+      </div>
+
+      <!-- ===== CLOCK-mode row ===== -->
+      <div class="moderow" id="clockRow">
+        <button class="chip" id="clk24Btn" type="button" aria-pressed="false" aria-label="Toggle 24-hour clock" title="12-hour / 24-hour">24-hour</button>
+        <button class="chip" id="clkSecBtn" type="button" aria-pressed="true" aria-label="Toggle seconds" title="Show or hide seconds">Seconds</button>
+      </div>
+
+      <!-- ===== Shared controls row (fullscreen / scroll / rainbow / color / share / help) ===== -->
+      <div class="row" id="sharedRow">
         <button class="iconbtn" id="fsBtn" type="button" title="Fullscreen (F)" aria-label="Toggle fullscreen">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" id="fsIcon">
             <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M16 21h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
@@ -714,6 +939,16 @@
 
         <!-- Color drawer toggle (opens the DIY color space) -->
         <button class="chip" id="colorBtn" type="button" title="Color & themes (C)" aria-label="Toggle color options" aria-pressed="false" aria-expanded="false" aria-controls="diyRow">Color</button>
+
+        <div class="spacer" aria-hidden="true"></div>
+
+        <!-- Share + Help -->
+        <button class="chip" id="shareBtn" type="button" title="Copy a shareable link to this exact view" aria-label="Copy shareable link">Share</button>
+        <button class="iconbtn" id="helpBtn" type="button" title="Keyboard shortcuts & help (?)" aria-label="Show help and keyboard shortcuts">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9"/><path d="M9.2 9a2.8 2.8 0 0 1 5.4 1c0 1.9-2.8 2.5-2.8 4"/><path d="M12 17.2h.01"/>
+          </svg>
+        </button>
       </div>
 
       <!-- ===== DIY COLOR SPACE (collapsible, tucked away) ===== -->
@@ -759,7 +994,47 @@
       </div>
 
       <div class="hint" aria-hidden="true">
-        <kbd>Enter</kbd> show &nbsp;·&nbsp; <kbd>Esc</kbd> clear &nbsp;·&nbsp; <kbd>S</kbd> scroll &nbsp;·&nbsp; <kbd>R</kbd> rainbow &nbsp;·&nbsp; <kbd>C</kbd> color &nbsp;·&nbsp; <kbd>F</kbd> fullscreen
+        <kbd>Enter</kbd> show &nbsp;·&nbsp; <kbd>Space</kbd> start/pause &nbsp;·&nbsp; <kbd>S</kbd> scroll &nbsp;·&nbsp; <kbd>R</kbd> rainbow &nbsp;·&nbsp; <kbd>C</kbd> color &nbsp;·&nbsp; <kbd>F</kbd> fullscreen &nbsp;·&nbsp; <kbd>?</kbd> help
+      </div>
+    </div>
+
+    <!-- ===== Help / shortcuts overlay ===== -->
+    <div id="help" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <div class="help">
+        <h2 id="helpTitle">BIG · Shortcuts &amp; features</h2>
+        <p class="sub">Show one value, enormous. Clock, countdown &amp; stopwatch; themes, rainbow, scroll ticker, shareable links — all in one file, fully offline.</p>
+
+        <h3>Keyboard</h3>
+        <dl>
+          <dt><kbd>Enter</kbd></dt><dd>Show the typed value (Text mode)</dd>
+          <dt><kbd>Esc</kbd></dt><dd>Clear value · or close this help / color drawer</dd>
+          <dt><kbd>Space</kbd></dt><dd>Start / pause the countdown or stopwatch (when not typing)</dd>
+          <dt><kbd>F</kbd></dt><dd>Toggle fullscreen</dd>
+          <dt><kbd>S</kbd></dt><dd>Toggle scroll / ticker mode</dd>
+          <dt><kbd>R</kbd></dt><dd>Toggle rainbow / unicorn color mode</dd>
+          <dt><kbd>C</kbd></dt><dd>Toggle the color &amp; theme drawer</dd>
+          <dt><kbd>?</kbd></dt><dd>Toggle this help overlay</dd>
+          <dt>any key</dt><dd>Jumps focus to the value field (Text mode)</dd>
+        </dl>
+
+        <h3>Modes</h3>
+        <dl>
+          <dt>Text</dt><dd>Type anything, or pick a preset. Turn on Cycle to rotate through multiple lines.</dd>
+          <dt>Clock</dt><dd>Live local time. Toggle 12/24-hour and seconds.</dd>
+          <dt>Countdown</dt><dd>Set mm:ss / hh:mm:ss, or a target clock time. Start, pause, reset, optional loop; it flashes &amp; reads DONE at zero.</dd>
+          <dt>Stopwatch</dt><dd>Counts up from zero. Start, pause, reset.</dd>
+        </dl>
+
+        <h3>More</h3>
+        <dl>
+          <dt>Share</dt><dd>Copies a link that restores this exact view (mode, value, theme, colors, rainbow, scroll, cycle).</dd>
+          <dt>Themes / DIY</dt><dd>10 presets plus custom text/background colors and a live rainbow palette.</dd>
+          <dt>Install</dt><dd>Add to Home Screen to launch it app-like; it runs fully offline.</dd>
+        </dl>
+
+        <div class="closebar">
+          <button class="chip" id="helpCloseBtn" type="button">Close</button>
+        </div>
       </div>
     </div>
   </main>
@@ -772,7 +1047,6 @@
   var app        = document.getElementById("app");
   var stage      = document.getElementById("stage");
   var display    = document.getElementById("display");
-  var sparkleEl  = document.getElementById("sparkle");
   var field      = document.getElementById("field");
   var presetRow  = document.getElementById("presetRow");
   var clearBtn   = document.getElementById("clearBtn");
@@ -794,6 +1068,31 @@
   var rbSpeedEl  = document.getElementById("rbSpeed");
   var stopsRow   = document.getElementById("stopsRow");
   var themeStyleEl = document.getElementById("theme-styles");
+  var themeColorMeta = document.getElementById("themeColorMeta");
+  // mode + new feature elements
+  var modeRow    = document.getElementById("modeRow");
+  var textRow    = document.getElementById("textRow");
+  var clockRow   = document.getElementById("clockRow");
+  var countdownRow = document.getElementById("countdownRow");
+  var stopwatchRow = document.getElementById("stopwatchRow");
+  var cycleBtn   = document.getElementById("cycleBtn");
+  var cycleCtl   = document.getElementById("cycleCtl");
+  var cycleSpeed = document.getElementById("cycleSpeed");
+  var cycleSecLabel = document.getElementById("cycleSecLabel");
+  var cdDuration = document.getElementById("cdDuration");
+  var cdTarget   = document.getElementById("cdTarget");
+  var cdStartBtn = document.getElementById("cdStartBtn");
+  var cdResetBtn = document.getElementById("cdResetBtn");
+  var cdLoopBtn  = document.getElementById("cdLoopBtn");
+  var swStartBtn = document.getElementById("swStartBtn");
+  var swResetBtn = document.getElementById("swResetBtn");
+  var clk24Btn   = document.getElementById("clk24Btn");
+  var clkSecBtn  = document.getElementById("clkSecBtn");
+  var shareBtn   = document.getElementById("shareBtn");
+  var helpBtn    = document.getElementById("helpBtn");
+  var helpOverlay = document.getElementById("help");
+  var helpCloseBtn = document.getElementById("helpCloseBtn");
+  var toastEl    = document.getElementById("toast");
 
   var PLACEHOLDER = "Type anything";
 
@@ -807,8 +1106,10 @@
     b.textContent = val;
     b.setAttribute("data-value", val);
     b.addEventListener("click", function () {
+      if (mode !== "text") setMode("text");
       field.value = val;
       setValue(val, { fromPreset: true });
+      persist();
     });
     presetRow.appendChild(b);
   });
@@ -857,6 +1158,17 @@
   function rgba(rgb, a) {
     if (!rgb) return "rgba(0,0,0," + a + ")";
     return "rgba(" + rgb.r + "," + rgb.g + "," + rgb.b + "," + a + ")";
+  }
+  // Relative luminance (0..1) of an {r,g,b} colour — used by the auto-contrast
+  // guard to decide whether to nudge ink lighter/darker and how strong an
+  // outline to add so the big text never disappears against its background.
+  function luminance(rgb) {
+    if (!rgb) return 0;
+    function lin(c) {
+      c = c / 255;
+      return (c <= 0.03928) ? (c / 12.92) : Math.pow((c + 0.055) / 1.055, 2.4);
+    }
+    return 0.2126 * lin(rgb.r) + 0.7152 * lin(rgb.g) + 0.0722 * lin(rgb.b);
   }
 
   // Build the full set of CSS custom properties for a palette {bg, ink, glow}.
@@ -920,6 +1232,10 @@
   // ---- State ----
   var current = "";          // the value currently displayed ("" => empty state)
   var rafId = null;          // pending fit frame
+  var lastDigitLen = -1;     // tracked across time-mode ticks to avoid re-fit thrash
+
+  // ---- Mode state ----
+  var mode = "text";         // "text" | "clock" | "countdown" | "stopwatch"
 
   // ---- Scroll / marquee state ----
   var scrollOn  = false;                            // opt-in; OFF by default
@@ -946,6 +1262,34 @@
   };
   // Working copy of stops for the CURRENT flavour (what the pickers edit).
   var rbStops = RB_DEFAULTS[flavor].slice();
+
+  // ---- Cycle / playlist state ----
+  var cycleOn   = false;
+  var cycleSecs = parseInt(cycleSpeed.value, 10) || 4;
+  var cycleItems = [];       // parsed non-empty lines from the field
+  var cycleIdx  = 0;
+  var cycleTimer = null;
+
+  // ---- Clock options ----
+  var clk24 = false;         // 12-hour by default
+  var clkSeconds = true;     // show seconds by default
+
+  // ---- Countdown / stopwatch state ----
+  // Time is computed from Date.now() deltas (drift-free). The single tick()
+  // scheduler aligns to the next whole second and self-corrects.
+  var cdRunning = false;
+  var cdEndAt   = 0;         // absolute ms timestamp when the countdown hits zero
+  var cdRemainMs = 0;        // remaining ms while paused / configured
+  var cdConfigMs = 60000;    // last configured duration (for reset); default 60s
+  var cdLoop    = false;
+  var cdDone    = false;     // latched at zero (drives the DONE read + flash)
+
+  var swRunning = false;
+  var swStartAt = 0;         // ms when (re)started
+  var swBaseMs  = 0;         // accumulated ms while paused
+
+  var tickTimer = null;      // single self-correcting time-mode scheduler
+  var pageHidden = false;
 
   var STORE_KEY = "big-screen.diy.v1";
 
@@ -1029,6 +1373,7 @@
     track.appendChild(seg);
     track.appendChild(seg2);
     display.appendChild(track);
+    if (pageHidden) track.classList.add("paused");
   }
 
   function fitScroll(box) {
@@ -1139,8 +1484,13 @@
     track.style.animationDelay = (-(frac * duration)) + "s";
   }
 
-  function currentProgress() {
+  // Read the live marquee phase (0..1) from the track's current translateX.
+  // Pass an explicit direction (useDirRTL) when the global dirRTL may already
+  // have been flipped — e.g. during a direction change, where we must interpret
+  // the on-screen tx under the OLD direction before swapping keyframes.
+  function currentProgress(useDirRTL) {
     if (!track || unit <= 0) return 0;
+    var rtl = (useDirRTL === undefined) ? dirRTL : !!useDirRTL;
     var tx = 0;
     var cs = getComputedStyle(track);
     var t = cs.transform || cs.webkitTransform;
@@ -1150,7 +1500,7 @@
       tx = parseFloat(is3d ? nums[12] : nums[4]) || 0;
     }
     var frac;
-    if (dirRTL) {
+    if (rtl) {
       frac = (-tx) / unit;
     } else {
       frac = (tx + unit) / unit;
@@ -1191,7 +1541,8 @@
     scheduleFit();
   }
 
-  function setScroll(on) {
+  function setScroll(on, opts) {
+    opts = opts || {};
     on = !!on;
     if (on === scrollOn) return;
     scrollOn = on;
@@ -1207,9 +1558,15 @@
     // The rainbow paint targets either #display (normal) or .seg (scroll) via
     // CSS selectors, so simply re-asserting the class set keeps it consistent.
     applyRainbowClasses();
+    // re-assert the .timed class onto fresh seg DOM in scroll mode
+    display.classList.toggle("timed", mode !== "text");
+    if (!opts.silent) persist();
   }
 
-  function setDirection(rtl) {
+  function setDirection(rtl, opts) {
+    opts = opts || {};
+    var oldRTL = dirRTL;                  // capture BEFORE mutating (phase read)
+    var changed = (!!rtl !== dirRTL);
     dirRTL = !!rtl;
     dirBtn.setAttribute("aria-pressed", dirRTL ? "true" : "false");
     var icon = document.getElementById("dirIcon");
@@ -1218,12 +1575,31 @@
         ? '<path d="M19 12H5M11 6l-6 6 6 6"/>'
         : '<path d="M5 12h14M13 6l6 6-6 6"/>';
     }
+    // FIX: flipping direction while the marquee is live must PRESERVE the
+    // current phase instead of snapping to the keyframe 'from' state. The two
+    // marquee keyframes are mirror images travelling the same |unit| distance,
+    // so the on-screen translateX is identical for phase p (L→R) and phase
+    // (1-p) (R→L). Re-anchoring with the COMPLEMENT fraction keeps the glyphs
+    // exactly where they are at the instant of the flip — zero jump. We reuse
+    // the same animation-delay reanchor technique as live speed changes.
     if (scrollOn && unit > 0 && track && track.classList.contains("run")) {
-      startMarquee();
+      var fracNow = currentProgress(oldRTL);     // phase under the OLD direction
+      var duration = unit / speedPxs;
+      if (!isFinite(duration) || duration <= 0) duration = 0.001;
+      var newFrac = changed ? (1 - fracNow) : fracNow;
+      newFrac = newFrac % 1; if (newFrac < 0) newFrac += 1;
+      track.style.setProperty("--unit", unit + "px");
+      track.classList.toggle("rtl", dirRTL);     // swap which keyframe runs
+      track.style.animationDuration = duration + "s";
+      track.style.animationDelay = (-(newFrac * duration)) + "s";
     }
+    if (!opts.silent) persist();
   }
 
   // ---- Set / render value --------------------------------------------------
+  // The ONE render path for text/preset/cycle values and the first frame of a
+  // time mode. Per-tick time updates use renderTimed() (below) to avoid the
+  // full normalise + unconditional re-fit on every second.
   function setValue(raw, opts) {
     opts = opts || {};
     var val = (raw == null) ? "" : String(raw);
@@ -1262,9 +1638,35 @@
     scheduleFit();
   }
 
+  // Lightweight per-tick renderer for time modes. Updates the glyph-bearing
+  // element(s) in place and ONLY re-fits when the character count changes
+  // (e.g. 9:59 → 10:00, or 0:09 → 0:10) — never every tick. This keeps the
+  // SAME #display / .seg DOM so themes + rainbow + scroll + fullscreen apply.
+  function renderTimed(str) {
+    current = str;
+    var lenChanged = (str.length !== lastDigitLen);
+    lastDigitLen = str.length;
+
+    if (scrollOn) {
+      if (seg && seg2) {
+        seg.textContent = str;
+        seg2.textContent = str;
+      }
+      // width only matters when char-count changed (tabular digits → equal
+      // widths per count). Re-fit/re-measure the marquee unit then.
+      if (lenChanged) scheduleFit();
+      return;
+    }
+
+    display.classList.remove("empty");
+    display.textContent = str;
+    if (lenChanged) scheduleFit();
+  }
+
   function updatePressedPresets() {
     presetChips.forEach(function (chip) {
-      var match = chip.getAttribute("data-value") === current && current.length > 0;
+      var match = mode === "text" &&
+                  chip.getAttribute("data-value") === current && current.length > 0;
       chip.setAttribute("aria-pressed", match ? "true" : "false");
     });
   }
@@ -1286,11 +1688,20 @@
       if (/^#[0-9a-fA-F]{6}$/.test(t.ink)) inkPick.value = t.ink;
       if (/^#[0-9a-fA-F]{6}$/.test(t.bg))  bgPick.value  = t.bg;
     }
+    // built-in themes are already legible: clear any custom-colour guard.
+    document.documentElement.style.setProperty("--ink-guard", "0 0 0 transparent");
+    syncThemeColorMeta();
     if (!opts.silent) {
       persist();
     }
     // theme change can affect available box via font rendering; re-fit defensively
     scheduleFit();
+  }
+
+  // Keep the browser chrome / PWA theme-color meta in sync with the live --bg.
+  function syncThemeColorMeta() {
+    var bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+    if (bg) themeColorMeta.setAttribute("content", bg);
   }
 
   // Live custom colours: write ink/bg (and derived tints) straight onto <html>
@@ -1307,8 +1718,43 @@
     });
     root.setAttribute("data-theme", "custom");
     swatches.forEach(function (s) { s.setAttribute("aria-pressed", "false"); });
+    applyContrastGuard(ink, bg);
+    syncThemeColorMeta();
     if (!opts.silent) persist();
     scheduleFit();
+  }
+
+  // AUTO-CONTRAST guard. When a custom bg/ink is chosen (rainbow off) and the
+  // two are too close in luminance, the big text would wash out. We DON'T fight
+  // the user's chosen ink hue; instead we add an adaptive outline/shadow in the
+  // opposite tone (dark halo on light text, light halo on dark text) so the
+  // glyphs always read. The halo is keyed off the INK luminance so it works for
+  // any background. When contrast is already comfortable, the guard is cleared.
+  function applyContrastGuard(inkHex, bgHex) {
+    var root = document.documentElement;
+    if (rainbowOn) { root.style.setProperty("--ink-guard", "0 0 0 transparent"); return; }
+    var ink = hexToRgb(inkHex), bg = hexToRgb(bgHex);
+    if (!ink || !bg) { root.style.setProperty("--ink-guard", "0 0 0 transparent"); return; }
+    var li = luminance(ink), lb = luminance(bg);
+    var contrast = (Math.max(li, lb) + 0.05) / (Math.min(li, lb) + 0.05);
+    if (contrast >= 3.0) {
+      // comfortable — no halo needed
+      root.style.setProperty("--ink-guard", "0 0 0 transparent");
+      return;
+    }
+    // pick a halo tone OPPOSITE the ink so the edge always shows against bg.
+    var haloDark  = "rgba(0,0,0,0.85)";
+    var haloLight = "rgba(255,255,255,0.92)";
+    var halo = (li > 0.5) ? haloDark : haloLight;
+    // a tight multi-direction outline (kept small so glyphs stay crisp)
+    var o = "0.018em";
+    var guard =
+      "0 0 " + o + " " + halo + "," +
+      o + " 0 " + o + " " + halo + "," +
+      "-" + o + " 0 " + o + " " + halo + "," +
+      "0 " + o + " " + o + " " + halo + "," +
+      "0 -" + o + " " + o + " " + halo;
+    root.style.setProperty("--ink-guard", guard);
   }
 
   function clearCustomColorVars() {
@@ -1316,6 +1762,7 @@
     ["--bg","--ink","--muted","--muted-strong","--chip-bg","--chip-bg-hover",
      "--chip-border","--field-bg","--field-focus","--accent","--glow"]
       .forEach(function (k) { root.style.removeProperty(k); });
+    root.style.setProperty("--ink-guard", "0 0 0 transparent");
   }
 
   // ===================================================================== //
@@ -1366,17 +1813,25 @@
     // sparkle only for unicorn flavour + user toggle + rainbow on
     var showSparkle = rainbowOn && flavor === "unicorn" && sparkleOn;
     stage.classList.toggle("sparkle-on", showSparkle);
+    // re-assert hidden-pause state onto fresh DOM
+    syncPausedClasses();
   }
 
-  function setRainbow(on) {
+  function setRainbow(on, opts) {
+    opts = opts || {};
     rainbowOn = !!on;
     rainbowBtn.setAttribute("aria-pressed", rainbowOn ? "true" : "false");
     if (rainbowOn) applyRainbowStyle();
     applyRainbowClasses();
-    persist();
+    // turning rainbow on/off changes whether the contrast guard applies
+    if (document.documentElement.getAttribute("data-theme") === "custom") {
+      applyContrastGuard(inkPick.value, bgPick.value);
+    }
+    if (!opts.silent) persist();
   }
 
-  function setFlavor(name) {
+  function setFlavor(name, opts) {
+    opts = opts || {};
     flavor = (name === "unicorn") ? "unicorn" : "rainbow";
     flavorBtn.textContent = (flavor === "unicorn") ? "Unicorn" : "Saturated";
     flavorBtn.setAttribute("aria-pressed", "true");
@@ -1385,14 +1840,15 @@
     renderStopPickers();
     applyRainbowStyle();
     applyRainbowClasses();
-    persist();
+    if (!opts.silent) persist();
   }
 
-  function setSparkle(on) {
+  function setSparkle(on, opts) {
+    opts = opts || {};
     sparkleOn = !!on;
     sparkleBtn.setAttribute("aria-pressed", sparkleOn ? "true" : "false");
     applyRainbowClasses();
-    persist();
+    if (!opts.silent) persist();
   }
 
   // Build the live gradient-stop colour pickers from rbStops.
@@ -1414,7 +1870,7 @@
     });
   }
 
-  // ---- DIY drawer open/close ----------------------------------------------
+  // ---- DIY drawer open/close -----------------------------------------------
   var diyOpen = false;
   function setDiyOpen(open) {
     diyOpen = !!open;
@@ -1423,22 +1879,525 @@
     colorBtn.setAttribute("aria-expanded", diyOpen ? "true" : "false");
   }
 
+  // ===================================================================== //
+  //  TIME MODES — clock / countdown / stopwatch                          //
+  //  One self-correcting scheduler. Each render computes its string from  //
+  //  Date.now() so there is ZERO accumulated drift; we only re-fit when   //
+  //  the character count changes (tabular digits keep width stable).      //
+  // ===================================================================== //
+
+  function pad2(n) { return (n < 10 ? "0" : "") + n; }
+
+  function formatClock(d) {
+    var h = d.getHours();
+    var m = d.getMinutes();
+    var s = d.getSeconds();
+    var suffix = "";
+    if (!clk24) {
+      suffix = (h >= 12) ? " PM" : " AM";
+      h = h % 12; if (h === 0) h = 12;
+    }
+    var str = (clk24 ? pad2(h) : String(h)) + ":" + pad2(m);
+    if (clkSeconds) str += ":" + pad2(s);
+    return str + suffix;
+  }
+
+  // Format ms (>=0) as H:MM:SS or M:SS depending on magnitude.
+  function formatDuration(ms) {
+    if (ms < 0) ms = 0;
+    var totalSec = Math.floor(ms / 1000);
+    var h = Math.floor(totalSec / 3600);
+    var m = Math.floor((totalSec % 3600) / 60);
+    var s = totalSec % 60;
+    if (h > 0) return h + ":" + pad2(m) + ":" + pad2(s);
+    return m + ":" + pad2(s);
+  }
+
+  // Parse a duration string: "ss", "mm:ss", or "hh:mm:ss" → ms (null on fail).
+  function parseDuration(str) {
+    if (typeof str !== "string") return null;
+    str = str.trim();
+    if (!str) return null;
+    if (!/^\d{1,2}(:\d{1,2}){0,2}$/.test(str)) return null;
+    var parts = str.split(":").map(function (p) { return parseInt(p, 10); });
+    var h = 0, m = 0, s = 0;
+    if (parts.length === 1) { s = parts[0]; }
+    else if (parts.length === 2) { m = parts[0]; s = parts[1]; }
+    else { h = parts[0]; m = parts[1]; s = parts[2]; }
+    if (m > 59 || s > 59) return null;
+    var total = ((h * 3600) + (m * 60) + s) * 1000;
+    return total;
+  }
+
+  // Parse a target clock time "HH:MM" (24h) → ms-from-now until the NEXT such
+  // time (today if still ahead, else tomorrow). Returns null on bad input.
+  function parseTargetTime(str) {
+    if (typeof str !== "string") return null;
+    str = str.trim();
+    var m = /^(\d{1,2}):(\d{2})$/.exec(str);
+    if (!m) return null;
+    var hh = parseInt(m[1], 10), mm = parseInt(m[2], 10);
+    if (hh > 23 || mm > 59) return null;
+    var now = new Date();
+    var target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hh, mm, 0, 0);
+    if (target.getTime() <= now.getTime()) target.setDate(target.getDate() + 1);
+    return target.getTime() - now.getTime();
+  }
+
+  // The single time-mode render. Decides the string for the active mode and
+  // pushes it through the lightweight renderer; reschedules aligned to the
+  // next whole second (self-correcting, no drift).
+  function tick() {
+    // Cancel any pending tick so a direct tick() call (from a control handler)
+    // collapses into ONE self-rescheduling chain. Without this, pairing tick()
+    // with ensureTicking() at a call site would leave two timers running and
+    // the clock/stopwatch would advance twice per second.
+    if (tickTimer !== null) { clearTimeout(tickTimer); }
+    tickTimer = null;
+    if (mode === "text" || pageHidden) return;
+
+    var now = Date.now();
+
+    if (mode === "clock") {
+      renderTimed(formatClock(new Date(now)));
+    } else if (mode === "stopwatch") {
+      var elapsed = swBaseMs + (swRunning ? (now - swStartAt) : 0);
+      renderTimed(formatDuration(elapsed));
+    } else if (mode === "countdown") {
+      var remain;
+      if (cdRunning) {
+        remain = cdEndAt - now;
+        if (remain <= 0) {
+          remain = 0;
+          onCountdownZero();
+        }
+      } else {
+        remain = cdRemainMs;
+      }
+      renderTimed(cdDone ? "DONE" : formatDuration(remain));
+    }
+
+    scheduleTick();
+  }
+
+  // Schedule the next tick aligned to the next whole-second boundary so the
+  // clock flips exactly on the second and there is no slow drift.
+  function scheduleTick() {
+    if (tickTimer !== null) return;
+    if (mode === "text" || pageHidden) return;
+    var ms = 1000 - (Date.now() % 1000);
+    if (ms < 16) ms += 1000;
+    tickTimer = setTimeout(tick, ms);
+  }
+
+  function stopTick() {
+    if (tickTimer !== null) { clearTimeout(tickTimer); tickTimer = null; }
+  }
+
+  function onCountdownZero() {
+    if (cdDone) return; // already handled this cycle
+    cdDone = true;
+    cdRunning = false;
+    cdRemainMs = 0;
+    // "DONE" is the same char-count as some durations but its letter glyphs are
+    // wider than tabular digits — force a re-fit so the word is sized correctly.
+    lastDigitLen = -1;
+    updateCdButtons();
+    celebrate();
+    if (cdLoop) {
+      // brief DONE flash, then restart the configured duration
+      setTimeout(function () {
+        if (mode !== "countdown" || !cdLoop) return;
+        startCountdown(true);
+      }, 1200);
+    }
+  }
+
+  function celebrate() {
+    stage.classList.remove("celebrate");
+    void stage.offsetWidth;
+    stage.classList.add("celebrate");
+    setTimeout(function () { stage.classList.remove("celebrate"); }, 2000);
+  }
+
+  // ---- Countdown control ---------------------------------------------------
+  function readCountdownConfig() {
+    // target clock time wins if provided; else duration field; else last config
+    var t = parseTargetTime(cdTarget.value);
+    if (t != null && t > 0) return t;
+    var d = parseDuration(cdDuration.value);
+    if (d != null && d > 0) return d;
+    return cdConfigMs;
+  }
+
+  function startCountdown(forceReload) {
+    var ms;
+    if (forceReload || cdRemainMs <= 0 || cdDone) {
+      ms = readCountdownConfig();
+      cdConfigMs = ms;
+      cdRemainMs = ms;
+    } else {
+      ms = cdRemainMs;
+    }
+    cdDone = false;
+    cdRunning = true;
+    cdEndAt = Date.now() + cdRemainMs;
+    updateCdButtons();
+    ensureTicking();
+    tick();
+  }
+
+  function pauseCountdown() {
+    if (!cdRunning) return;
+    cdRemainMs = Math.max(0, cdEndAt - Date.now());
+    cdRunning = false;
+    updateCdButtons();
+    tick();
+  }
+
+  function resetCountdown() {
+    cdRunning = false;
+    cdDone = false;
+    cdRemainMs = readCountdownConfig();
+    cdConfigMs = cdRemainMs;
+    updateCdButtons();
+    if (mode === "countdown") tick();
+  }
+
+  function updateCdButtons() {
+    cdStartBtn.textContent = cdRunning ? "Pause" : "Start";
+    cdStartBtn.setAttribute("aria-pressed", cdRunning ? "true" : "false");
+  }
+
+  // ---- Stopwatch control ---------------------------------------------------
+  function startStopwatch() {
+    if (swRunning) return;
+    swRunning = true;
+    swStartAt = Date.now();
+    updateSwButtons();
+    ensureTicking();
+    tick();
+  }
+  function pauseStopwatch() {
+    if (!swRunning) return;
+    swBaseMs += Date.now() - swStartAt;
+    swRunning = false;
+    updateSwButtons();
+    tick();
+  }
+  function resetStopwatch() {
+    swRunning = false;
+    swBaseMs = 0;
+    swStartAt = 0;
+    updateSwButtons();
+    if (mode === "stopwatch") tick();
+  }
+  function updateSwButtons() {
+    swStartBtn.textContent = swRunning ? "Pause" : "Start";
+    swStartBtn.setAttribute("aria-pressed", swRunning ? "true" : "false");
+  }
+
+  // Space toggles the running timer for whichever timed mode is active.
+  function toggleActiveTimer() {
+    if (mode === "stopwatch") {
+      swRunning ? pauseStopwatch() : startStopwatch();
+    } else if (mode === "countdown") {
+      cdRunning ? pauseCountdown() : startCountdown(false);
+    }
+  }
+
+  function ensureTicking() {
+    if (mode !== "text" && !pageHidden) scheduleTick();
+  }
+
+  // ---- Mode switching ------------------------------------------------------
+  function setMode(name, opts) {
+    opts = opts || {};
+    if (["text", "clock", "countdown", "stopwatch"].indexOf(name) === -1) name = "text";
+    mode = name;
+
+    // segmented selector pressed states
+    Array.prototype.forEach.call(modeRow.querySelectorAll("[data-mode]"), function (b) {
+      b.setAttribute("aria-pressed", b.getAttribute("data-mode") === mode ? "true" : "false");
+    });
+
+    // progressive disclosure: show only this mode's sub-controls
+    textRow.classList.toggle("open", mode === "text");
+    clockRow.classList.toggle("open", mode === "clock");
+    countdownRow.classList.toggle("open", mode === "countdown");
+    stopwatchRow.classList.toggle("open", mode === "stopwatch");
+
+    // time modes use tabular figures + a quieter aria-live (no per-second spam)
+    display.classList.toggle("timed", mode !== "text");
+    display.setAttribute("aria-live", (mode === "text") ? "polite" : "off");
+
+    // Cancel any outstanding schedulers up front so switching modes (including
+    // time→time, e.g. countdown→clock) can never leave a stale setTimeout
+    // racing the new one and double-ticking. The relevant scheduler is re-armed
+    // below for the mode we are entering.
+    stopTick();
+    if (mode !== "text") stopCycleTimer();
+
+    lastDigitLen = -1; // force a fit on the first frame of the new mode
+
+    if (mode === "text") {
+      // restore the typed value (or placeholder)
+      setValue(field.value, { silentAnim: true });
+      if (cycleOn) startCycle();
+    } else if (mode === "clock") {
+      tick();
+      ensureTicking();
+    } else if (mode === "countdown") {
+      // do not auto-run; show configured remaining
+      if (cdRemainMs <= 0 && !cdRunning) cdRemainMs = readCountdownConfig();
+      updateCdButtons();
+      tick();
+      if (cdRunning) ensureTicking();
+    } else if (mode === "stopwatch") {
+      updateSwButtons();
+      tick();
+      if (swRunning) ensureTicking();
+    }
+
+    if (!opts.silent) persist();
+  }
+
+  // ===================================================================== //
+  //  AUTO-CYCLE / PLAYLIST                                                //
+  //  Rotate through the non-empty lines of the value field at an interval.//
+  // ===================================================================== //
+  function parseCycleItems() {
+    var raw = field.value || "";
+    return raw.split("\n").map(function (s) { return s.trim(); })
+      .filter(function (s) { return s.length > 0; });
+  }
+
+  function startCycle() {
+    cycleItems = parseCycleItems();
+    if (cycleItems.length === 0) { showCurrentCycleItem(); return; }
+    if (cycleIdx >= cycleItems.length) cycleIdx = 0;
+    showCurrentCycleItem();
+    scheduleCycleTimer();
+  }
+
+  function showCurrentCycleItem() {
+    if (mode !== "text") return;
+    if (cycleItems.length === 0) {
+      setValue(field.value);
+      return;
+    }
+    setValue(cycleItems[cycleIdx]);
+  }
+
+  function scheduleCycleTimer() {
+    stopCycleTimer();
+    if (!cycleOn || pageHidden || mode !== "text") return;
+    if (cycleItems.length < 2) return;
+    cycleTimer = setTimeout(function () {
+      cycleIdx = (cycleIdx + 1) % cycleItems.length;
+      showCurrentCycleItem();
+      scheduleCycleTimer();
+    }, Math.max(1, cycleSecs) * 1000);
+  }
+
+  function stopCycleTimer() {
+    if (cycleTimer !== null) { clearTimeout(cycleTimer); cycleTimer = null; }
+  }
+
+  function setCycle(on, opts) {
+    opts = opts || {};
+    cycleOn = !!on;
+    cycleBtn.setAttribute("aria-pressed", cycleOn ? "true" : "false");
+    cycleSpeed.disabled = !cycleOn;
+    cycleCtl.classList.toggle("is-off", !cycleOn);
+    // swap the single-line input for a multi-line textarea (and back) so the
+    // user can enter one value per line — without losing the typed content.
+    swapFieldKind(cycleOn);
+    if (cycleOn) {
+      cycleIdx = 0;
+      if (mode === "text") startCycle();
+    } else {
+      stopCycleTimer();
+      if (mode === "text") setValue(field.value);
+    }
+    if (!opts.silent) persist();
+  }
+
+  // Swap #field between <input> (single line) and <textarea> (multi line),
+  // preserving its value, id, listeners-by-delegation and focus styles.
+  function swapFieldKind(multi) {
+    var isTextarea = (field.tagName === "TEXTAREA");
+    if (multi === isTextarea) return; // already correct kind
+    var val = field.value;
+    var fresh;
+    if (multi) {
+      fresh = document.createElement("textarea");
+      fresh.rows = 2;
+      fresh.placeholder = "One value per line…";
+    } else {
+      fresh = document.createElement("input");
+      fresh.type = "text";
+      fresh.setAttribute("inputmode", "text");
+      fresh.placeholder = "Type anything, then Enter…";
+    }
+    fresh.id = "field";
+    fresh.value = val;
+    fresh.setAttribute("autocomplete", "off");
+    fresh.setAttribute("autocapitalize", "off");
+    fresh.setAttribute("spellcheck", "false");
+    fresh.setAttribute("aria-label", "Custom value");
+    field.parentNode.replaceChild(fresh, field);
+    field = fresh;
+    wireField();
+  }
+
+  function updateCycleLabel() {
+    cycleSecLabel.textContent = cycleSecs + "s";
+  }
+
+  // ===================================================================== //
+  //  SHAREABLE STATE — encode/decode the full app state in the URL hash   //
+  //  Compact key=value&… form. Robust to missing/extra keys.              //
+  // ===================================================================== //
+  function collectState() {
+    var root = document.documentElement;
+    return {
+      mode: mode,
+      v: (mode === "text") ? field.value : "",
+      theme: root.getAttribute("data-theme") || "dark",
+      ink: inkPick.value,
+      bg: bgPick.value,
+      rb: rainbowOn ? 1 : 0,
+      fl: flavor,
+      rbd: rbDur,
+      rbs: rbStops.slice(),
+      sp: sparkleOn ? 1 : 0,
+      sc: scrollOn ? 1 : 0,
+      sps: speedPxs,
+      dir: dirRTL ? 1 : 0,
+      cy: cycleOn ? 1 : 0,
+      cys: cycleSecs,
+      // time-mode config
+      c24: clk24 ? 1 : 0,
+      csec: clkSeconds ? 1 : 0,
+      cdd: cdDuration.value,
+      cdt: cdTarget.value,
+      cdl: cdLoop ? 1 : 0
+    };
+  }
+
+  function encodeHash() {
+    var st = collectState();
+    var parts = [];
+    function put(k, val) { parts.push(k + "=" + encodeURIComponent(val)); }
+    put("mode", st.mode);
+    if (st.v) put("v", st.v);
+    put("theme", st.theme);
+    if (st.theme === "custom") { put("ink", st.ink); put("bg", st.bg); }
+    put("rb", st.rb); put("fl", st.fl); put("rbd", st.rbd);
+    put("rbs", st.rbs.join(",")); put("sp", st.sp);
+    put("sc", st.sc); put("sps", Math.round(st.sps)); put("dir", st.dir);
+    put("cy", st.cy); put("cys", st.cys);
+    put("c24", st.c24); put("csec", st.csec);
+    if (st.cdd) put("cdd", st.cdd);
+    if (st.cdt) put("cdt", st.cdt);
+    put("cdl", st.cdl);
+    return "#" + parts.join("&");
+  }
+
+  function parseHash() {
+    var h = location.hash || "";
+    if (h.charAt(0) === "#") h = h.slice(1);
+    if (!h) return null;
+    var out = {};
+    h.split("&").forEach(function (pair) {
+      if (!pair) return;
+      var i = pair.indexOf("=");
+      var k = (i === -1) ? pair : pair.slice(0, i);
+      var v = (i === -1) ? "" : pair.slice(i + 1);
+      try { out[decodeURIComponent(k)] = decodeURIComponent(v); }
+      catch (e) { /* skip malformed key/value */ }
+    });
+    return out;
+  }
+
+  function updateHash() {
+    var newHash = encodeHash();
+    if (("#" + (location.hash.replace(/^#/, ""))) === newHash) return;
+    try { history.replaceState(null, "", newHash); }
+    catch (e) { location.hash = newHash; }
+  }
+
+  // Apply a parsed state object (from hash) on load. Mirrors restore() but
+  // takes precedence. Missing keys fall back to whatever is already set.
+  function applyState(s, opts) {
+    opts = opts || {};
+    if (!s || typeof s !== "object") return;
+    var hex = /^#?[0-9a-fA-F]{6}$/;
+
+    // ---- colours / theme first ----
+    if (s.theme === "custom" && hex.test("#" + (s.ink || "").replace(/^#/, "")) &&
+        hex.test("#" + (s.bg || "").replace(/^#/, ""))) {
+      inkPick.value = ("#" + (s.ink || "").replace(/^#/, "")).slice(0, 7);
+      bgPick.value  = ("#" + (s.bg  || "").replace(/^#/, "")).slice(0, 7);
+      applyCustomColors({ silent: true });
+    } else if (s.theme && THEMES[s.theme]) {
+      setTheme(s.theme, { silent: true });
+    }
+
+    // ---- rainbow ----
+    if (s.fl) setFlavor(s.fl === "unicorn" ? "unicorn" : "rainbow", { silent: true });
+    if (Array.isArray(s.rbs) || (typeof s.rbs === "string" && s.rbs)) {
+      var arr = (typeof s.rbs === "string") ? s.rbs.split(",") : s.rbs;
+      arr = arr.filter(function (c) { return /^#[0-9a-fA-F]{6}$/.test(c); });
+      if (arr.length >= 2) { rbStops = arr; renderStopPickers(); }
+    }
+    if (s.rbd != null) {
+      var rd = parseFloat(s.rbd);
+      if (!isNaN(rd) && rd >= 1 && rd <= 20) { rbDur = rd; rbSpeedEl.value = String(rbDur); }
+    }
+    if (s.sp != null) setSparkle(s.sp === "1" || s.sp === 1 || s.sp === true, { silent: true });
+    if (s.rb != null) setRainbow(s.rb === "1" || s.rb === 1 || s.rb === true, { silent: true });
+
+    // ---- scroll ----
+    if (s.sps != null) {
+      var sv = parseFloat(s.sps);
+      if (!isNaN(sv) && sv > 0) { speedPxs = sv; speedEl.value = String(Math.max(20, Math.min(600, sv))); }
+    }
+    if (s.dir != null) setDirection(s.dir === "1" || s.dir === 1 || s.dir === true, { silent: true });
+    if (s.sc != null) setScroll(s.sc === "1" || s.sc === 1 || s.sc === true, { silent: true });
+
+    // ---- clock options ----
+    if (s.c24 != null) { clk24 = (s.c24 === "1" || s.c24 === 1 || s.c24 === true); clk24Btn.setAttribute("aria-pressed", clk24 ? "true" : "false"); }
+    if (s.csec != null) { clkSeconds = !(s.csec === "0" || s.csec === 0); clkSecBtn.setAttribute("aria-pressed", clkSeconds ? "true" : "false"); }
+
+    // ---- countdown config ----
+    if (typeof s.cdd === "string") cdDuration.value = s.cdd;
+    if (typeof s.cdt === "string") cdTarget.value = s.cdt;
+    if (s.cdl != null) { cdLoop = (s.cdl === "1" || s.cdl === 1 || s.cdl === true); cdLoopBtn.setAttribute("aria-pressed", cdLoop ? "true" : "false"); }
+    cdRemainMs = readCountdownConfig();
+    cdConfigMs = cdRemainMs;
+
+    // ---- value + cycle ----
+    if (typeof s.v === "string") field.value = s.v;
+    if (s.cys != null) {
+      var cs = parseInt(s.cys, 10);
+      if (!isNaN(cs) && cs >= 1) { cycleSecs = Math.min(30, cs); cycleSpeed.value = String(cycleSecs); updateCycleLabel(); }
+    }
+    if (s.cy != null) setCycle(s.cy === "1" || s.cy === 1 || s.cy === true, { silent: true });
+
+    // ---- mode last (it reads the config above) ----
+    if (s.mode) setMode(s.mode, { silent: true });
+  }
+
   // ---- Persistence (self-contained localStorage, no network) --------------
   function persist() {
     try {
-      var root = document.documentElement;
-      var data = {
-        theme: root.getAttribute("data-theme") || "dark",
-        ink: inkPick.value,
-        bg: bgPick.value,
-        rainbowOn: rainbowOn,
-        flavor: flavor,
-        sparkleOn: sparkleOn,
-        rbDur: rbDur,
-        rbStops: rbStops.slice()
-      };
-      localStorage.setItem(STORE_KEY, JSON.stringify(data));
+      var st = collectState();
+      localStorage.setItem(STORE_KEY, JSON.stringify(st));
     } catch (e) { /* storage unavailable — silently skip */ }
+    // keep the URL hash in sync so a copy of the address bar is always shareable
+    updateHash();
   }
 
   function restore() {
@@ -1451,45 +2410,24 @@
       setTheme("dark", { silent: true });
       return;
     }
-
-    // rainbow settings first (so applyRainbowStyle has the right stops)
-    flavor = (data.flavor === "unicorn") ? "unicorn" : "rainbow";
-    flavorBtn.textContent = (flavor === "unicorn") ? "Unicorn" : "Saturated";
-    sparkleOn = (data.sparkleOn !== false);
-    sparkleBtn.setAttribute("aria-pressed", sparkleOn ? "true" : "false");
-
-    if (typeof data.rbDur === "number" && data.rbDur >= 1 && data.rbDur <= 20) {
-      rbDur = data.rbDur;
-      rbSpeedEl.value = String(rbDur);
-    }
-    if (Array.isArray(data.rbStops) && data.rbStops.length >= 2) {
-      rbStops = data.rbStops.filter(function (c) {
-        return /^#[0-9a-fA-F]{6}$/.test(c);
-      });
-      if (rbStops.length < 2) rbStops = RB_DEFAULTS[flavor].slice();
-    } else {
-      rbStops = RB_DEFAULTS[flavor].slice();
-    }
-    renderStopPickers();
-
-    // theme / custom colours
-    if (data.theme === "custom" &&
-        /^#[0-9a-fA-F]{6}$/.test(data.ink || "") &&
-        /^#[0-9a-fA-F]{6}$/.test(data.bg || "")) {
-      inkPick.value = data.ink;
-      bgPick.value = data.bg;
-      applyCustomColors({ silent: true });
-    } else if (data.theme && THEMES[data.theme]) {
-      setTheme(data.theme, { silent: true });
-    } else {
-      setTheme("dark", { silent: true });
-    }
-
-    // rainbow on/off last (style already prepared)
-    rainbowOn = !!data.rainbowOn;
-    rainbowBtn.setAttribute("aria-pressed", rainbowOn ? "true" : "false");
-    if (rainbowOn) applyRainbowStyle();
-    applyRainbowClasses();
+    // Reuse the same applier the hash uses — single code path, no duplication.
+    // Normalise legacy keys (the pre-2.0 blob used different names).
+    var s = {
+      mode: data.mode || "text",
+      v: (typeof data.v === "string") ? data.v : "",
+      theme: data.theme || "dark",
+      ink: data.ink, bg: data.bg,
+      rb: data.rb != null ? data.rb : (data.rainbowOn ? 1 : 0),
+      fl: data.fl || data.flavor || flavor,
+      rbd: data.rbd != null ? data.rbd : data.rbDur,
+      rbs: Array.isArray(data.rbs) ? data.rbs : data.rbStops,
+      sp: data.sp != null ? data.sp : (data.sparkleOn === false ? 0 : 1),
+      sc: data.sc, sps: data.sps, dir: data.dir,
+      cy: data.cy, cys: data.cys,
+      c24: data.c24, csec: data.csec,
+      cdd: data.cdd, cdt: data.cdt, cdl: data.cdl
+    };
+    applyState(s, { fromStore: true });
   }
 
   // ---- Wire up DIY controls -----------------------------------------------
@@ -1535,7 +2473,115 @@
     if (!isNaN(v) && v > 0) {
       speedPxs = v;
       updateMarqueeSpeed();
+      persist();
     }
+  });
+
+  // ---- Mode selector -------------------------------------------------------
+  Array.prototype.forEach.call(modeRow.querySelectorAll("[data-mode]"), function (b) {
+    b.addEventListener("click", function () { setMode(b.getAttribute("data-mode")); });
+  });
+
+  // ---- Cycle controls ------------------------------------------------------
+  cycleBtn.addEventListener("click", function () { setCycle(!cycleOn); });
+  cycleSpeed.addEventListener("input", function () {
+    var v = parseInt(cycleSpeed.value, 10);
+    if (!isNaN(v) && v >= 1) {
+      cycleSecs = v;
+      updateCycleLabel();
+      if (cycleOn && mode === "text") scheduleCycleTimer(); // re-time live
+      persist();
+    }
+  });
+
+  // ---- Countdown controls --------------------------------------------------
+  cdStartBtn.addEventListener("click", function () {
+    if (cdRunning) pauseCountdown(); else startCountdown(false);
+  });
+  cdResetBtn.addEventListener("click", function () { resetCountdown(); persist(); });
+  cdLoopBtn.addEventListener("click", function () {
+    cdLoop = !cdLoop;
+    cdLoopBtn.setAttribute("aria-pressed", cdLoop ? "true" : "false");
+    persist();
+  });
+  function onCdConfigChange() {
+    if (!cdRunning) { cdDone = false; cdRemainMs = readCountdownConfig(); cdConfigMs = cdRemainMs; if (mode === "countdown") tick(); }
+    persist();
+  }
+  cdDuration.addEventListener("input", onCdConfigChange);
+  cdTarget.addEventListener("input", onCdConfigChange);
+  // keep digits in the value field from being hijacked: stop config inputs from
+  // bubbling to the global type-to-focus handler (they are real text fields).
+
+  // ---- Stopwatch controls --------------------------------------------------
+  swStartBtn.addEventListener("click", function () {
+    if (swRunning) pauseStopwatch(); else startStopwatch();
+  });
+  swResetBtn.addEventListener("click", function () { resetStopwatch(); });
+
+  // ---- Clock options -------------------------------------------------------
+  clk24Btn.addEventListener("click", function () {
+    clk24 = !clk24;
+    clk24Btn.setAttribute("aria-pressed", clk24 ? "true" : "false");
+    lastDigitLen = -1; // 12/24 can change width
+    if (mode === "clock") tick();
+    persist();
+  });
+  clkSecBtn.addEventListener("click", function () {
+    clkSeconds = !clkSeconds;
+    clkSecBtn.setAttribute("aria-pressed", clkSeconds ? "true" : "false");
+    lastDigitLen = -1;
+    if (mode === "clock") tick();
+    persist();
+  });
+
+  // ---- Share / copy link ---------------------------------------------------
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function () { toastEl.classList.remove("show"); }, 1700);
+  }
+
+  function copyLink() {
+    updateHash();
+    var url = location.href;
+    function ok() { showToast("Link copied"); }
+    function fail() {
+      // textarea fallback for older browsers / non-secure contexts
+      try {
+        var ta = document.createElement("textarea");
+        ta.value = url;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.top = "-1000px";
+        document.body.appendChild(ta);
+        ta.select();
+        var done = document.execCommand("copy");
+        document.body.removeChild(ta);
+        showToast(done ? "Link copied" : "Copy failed — select the URL");
+      } catch (e) {
+        showToast("Copy failed — select the URL");
+      }
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(ok).catch(fail);
+    } else {
+      fail();
+    }
+  }
+  shareBtn.addEventListener("click", copyLink);
+
+  // ---- Help overlay --------------------------------------------------------
+  function setHelp(open) {
+    helpOverlay.classList.toggle("open", open);
+    helpBtn.setAttribute("aria-pressed", open ? "true" : "false");
+    if (open) { helpCloseBtn.focus(); }
+  }
+  helpBtn.addEventListener("click", function () { setHelp(!helpOverlay.classList.contains("open")); });
+  helpCloseBtn.addEventListener("click", function () { setHelp(false); });
+  helpOverlay.addEventListener("click", function (e) {
+    if (e.target === helpOverlay) setHelp(false);
   });
 
   // ---- Fullscreen ----------------------------------------------------------
@@ -1574,38 +2620,105 @@
   // ---- Clear ---------------------------------------------------------------
   function clearValue() {
     field.value = "";
+    if (mode !== "text") setMode("text");
+    if (cycleOn) { cycleItems = []; cycleIdx = 0; }
     setValue("");
     field.focus();
+    persist();
   }
   clearBtn.addEventListener("click", clearValue);
 
-  // ---- Input: live as you type ---------------------------------------------
-  field.addEventListener("input", function () {
-    setValue(field.value);
-  });
+  // ---- Input field wiring (re-applied when swapped input<->textarea) -------
+  function wireField() {
+    field.addEventListener("input", function () {
+      if (mode !== "text") return;
+      if (cycleOn) {
+        // live edit of the playlist: re-parse, keep index in range, show current
+        cycleItems = parseCycleItems();
+        if (cycleIdx >= cycleItems.length) cycleIdx = 0;
+        showCurrentCycleItem();
+        scheduleCycleTimer();
+      } else {
+        setValue(field.value);
+      }
+      persist();
+    });
+
+    field.addEventListener("keydown", function (e) {
+      // In multi-line (cycle) mode, Enter inserts a newline normally; only the
+      // single-line input treats Enter as "show".
+      if (e.key === "Enter" && field.tagName !== "TEXTAREA") {
+        e.preventDefault();
+        setValue(field.value);
+        field.blur();
+        persist();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        clearValue();
+      }
+    });
+
+    field.addEventListener("focus", function () { app.classList.add("peek"); });
+    field.addEventListener("blur", function () {
+      clearTimeout(peek._t);
+      peek._t = setTimeout(function () {
+        if (!diyRow.classList.contains("open")) app.classList.remove("peek");
+      }, 400);
+    });
+  }
+  wireField();
 
   // ---- Keyboard ------------------------------------------------------------
-  field.addEventListener("keydown", function (e) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      setValue(field.value);
-      field.blur();
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      clearValue();
-    }
-  });
+  function isTypingTarget(el) {
+    if (!el) return false;
+    var tag = el.tagName;
+    return (el === field) || (tag === "TEXTAREA") ||
+           (tag === "INPUT" && /^(text|number|search|url|email|password|tel)$/i.test(el.type || "text"));
+  }
 
   document.addEventListener("keydown", function (e) {
-    var typing = (document.activeElement === field);
+    // Help overlay: "?" toggles, Esc closes (handled first so Esc closes help
+    // before it would clear the value).
+    if (e.key === "?" ) {
+      // "?" usually needs Shift; allow it from anywhere except while typing.
+      if (!isTypingTarget(document.activeElement)) {
+        e.preventDefault();
+        setHelp(!helpOverlay.classList.contains("open"));
+        return;
+      }
+    }
+    if (helpOverlay.classList.contains("open") && e.key === "Escape") {
+      e.preventDefault();
+      setHelp(false);
+      return;
+    }
+
+    var typing = isTypingTarget(document.activeElement);
 
     if (e.key === "Escape" && !typing) {
       e.preventDefault();
+      if (diyOpen) { setDiyOpen(false); return; }
       clearValue();
       return;
     }
 
     if (!typing) {
+      // Space toggles the active timer (countdown/stopwatch). If a button/chip
+      // is focused we let ITS native Space activation handle things (so e.g.
+      // Reset isn't shadowed by a global start/pause) — otherwise we toggle and
+      // preventDefault so the page never scrolls.
+      if ((e.key === " " || e.key === "Spacebar" || e.code === "Space")) {
+        if (mode === "countdown" || mode === "stopwatch") {
+          var aeSpace = document.activeElement;
+          var onButton = aeSpace && /^(BUTTON|A)$/.test(aeSpace.tagName);
+          if (!onButton) {
+            e.preventDefault();
+            toggleActiveTimer();
+          }
+          return;
+        }
+      }
+
       // Single-letter shortcuts still fire even while another control is
       // focused (toggling rainbow/scroll/etc. from anywhere is expected).
       if (e.key === "f" || e.key === "F") {
@@ -1629,35 +2742,52 @@
         peek();
         return;
       }
-      // Type-to-focus: a printable key jumps into the value field — BUT not
-      // when the user is interacting with another DIY control (a colour
-      // picker, the Flow/Speed range, or a chip/button). Without this guard
-      // typing a single char while adjusting the rainbow palette would yank
-      // focus to #field and disrupt the DIY interaction.
+      // Type-to-focus: a printable key jumps into the value field — BUT only in
+      // Text mode, and not when interacting with another control (a colour
+      // picker, a range, a chip/button). Without this guard typing a single
+      // char while adjusting the rainbow palette would yank focus to #field.
       var ae = document.activeElement;
       var inOtherControl = ae && ae !== field &&
         /^(INPUT|BUTTON|SELECT|TEXTAREA)$/.test(ae.tagName);
-      if (!inOtherControl &&
+      if (mode === "text" && !inOtherControl &&
           e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
         field.focus();
       }
     }
   });
 
+  // peek(): briefly reveal the tucked controls (used by the C shortcut and
+  // field focus). Kept because the keyboard handler + field focus both call it.
   function peek() {
     app.classList.add("peek");
     clearTimeout(peek._t);
     peek._t = setTimeout(function () { app.classList.remove("peek"); }, 1600);
   }
-  field.addEventListener("focus", function () { app.classList.add("peek"); });
-  field.addEventListener("blur", function () {
-    clearTimeout(peek._t);
-    peek._t = setTimeout(function () {
-      // Keep the controls revealed while the DIY drawer is open, otherwise the
-      // drawer's own pickers/sliders would fade out from under the user as soon
-      // as focus leaves the value field.
-      if (!diyRow.classList.contains("open")) app.classList.remove("peek");
-    }, 400);
+
+  // ---- Visibility: pause everything when hidden, resume on return ----------
+  function syncPausedClasses() {
+    display.classList.toggle("paused", pageHidden);
+    stage.classList.toggle("paused", pageHidden);
+    if (track) track.classList.toggle("paused", pageHidden);
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    pageHidden = !!document.hidden;
+    syncPausedClasses();
+    if (pageHidden) {
+      stopTick();
+      stopCycleTimer();
+    } else {
+      // resume: timers recompute from Date.now() so no drift accumulated while
+      // hidden; just re-render immediately and re-arm the schedulers.
+      if (mode !== "text") { tick(); ensureTicking(); }
+      if (cycleOn && mode === "text") {
+        cycleItems = parseCycleItems();
+        if (cycleIdx >= cycleItems.length) cycleIdx = 0;
+        showCurrentCycleItem();
+        scheduleCycleTimer();
+      }
+    }
   });
 
   // ---- Resize / orientation: re-fit ----------------------------------------
@@ -1673,25 +2803,62 @@
     document.fonts.ready.then(scheduleFit).catch(function () {});
   }
 
+  // ---- React to hash changes (e.g. back/forward, manual edits) -------------
+  var applyingHash = false;
+  window.addEventListener("hashchange", function () {
+    if (applyingHash) return;
+    var s = parseHash();
+    if (s) { applyingHash = true; applyState(s); applyingHash = false; }
+  });
+
   // ---- Init ----------------------------------------------------------------
   // 1) Build the data-driven theme CSS + swatches from the registry.
   renderThemeStyles();
   renderSwatches();
   // 2) Reflect the default flavor/sparkle state into their buttons so a FRESH
   //    load (no stored data, restore() early-returns) shows correct pressed
-  //    states. restore() overrides these when persisted settings exist.
+  //    states. restore()/applyState() override these when settings exist.
   flavorBtn.textContent = (flavor === "unicorn") ? "Unicorn" : "Saturated";
   sparkleBtn.setAttribute("aria-pressed", sparkleOn ? "true" : "false");
   // 3) Default rainbow stop pickers (restore() may replace them).
   renderStopPickers();
-  // 4) Restore persisted DIY settings (theme/custom colours/rainbow), else dark.
-  restore();
-  // 4) Scroll defaults.
-  setDirection(false);
-  // 5) Seed the value.
-  field.value = "996";
-  setValue("996", { silentAnim: true });
+  updateCycleLabel();
+  // 4) Scroll defaults (before restore so flips re-anchor correctly).
+  setDirection(false, { silent: true });
+  // 5) PRECEDENCE: URL hash (if present) > stored settings > defaults.
+  var hashState = parseHash();
+  if (hashState) {
+    // seed sensible colour defaults first so a partial hash still looks right
+    setTheme("dark", { silent: true });
+    field.value = "996";
+    applyingHash = true;
+    applyState(hashState);
+    applyingHash = false;
+    // if hash didn't set a mode, ensure text mode is wired up
+    if (!hashState.mode) setMode("text", { silent: true });
+  } else {
+    // 6) Seed the default value, then restore persisted settings (theme/colours/
+    //    rainbow/scroll/cycle/mode), else dark + 996.
+    field.value = "996";
+    restore();
+    if (mode === "text" && !cycleOn) setValue(field.value, { silentAnim: true });
+    else if (mode === "text" && cycleOn) startCycle();
+  }
+
+  // ensure value present if nothing seeded it
+  if (mode === "text" && current.length === 0 && field.value.length === 0) {
+    field.value = "996";
+    setValue("996", { silentAnim: true });
+  }
+
+  syncThemeColorMeta();
   syncFsIcon();
+  syncPausedClasses();
+  // keep the address bar shareable from the first paint
+  updateHash();
+
+  // start the right scheduler for the active mode
+  if (mode !== "text") { tick(); ensureTicking(); }
 
   fit();
   requestAnimationFrame(fit);
