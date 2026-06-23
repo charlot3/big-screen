@@ -383,30 +383,60 @@
     #sparkle { animation: none !important; opacity: 0 !important; }
   }
 
-  /* ---- Controls (quiet, tucked at the bottom, revealed on hover) ---- */
+  /* ---- Controls — a tidy bottom dock that auto-hides on idle ----
+     The permanent 0.34 "ghost" is gone. Visibility is driven entirely by
+     JS toggling #app.ui-show (revealed) / its absence (auto-hidden), plus a
+     hard #app.ui-hidden state for the explicit Hide button / "H" key. The
+     dock itself is a centered card with even spacing — no awkward centre gaps.
+     pointer-events flip with visibility so a hidden dock is fully inert. */
   #controls {
     flex: 0 0 auto;
     position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    padding: 16px clamp(14px, 3vw, 34px) calc(16px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    transform: translate(-50%, 8px);
+    bottom: clamp(10px, 2.4vmin, 22px);
+    width: min(100%, 1040px);
+    padding: 14px clamp(12px, 2.4vw, 22px) calc(14px + env(safe-area-inset-bottom, 0px));
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    align-items: center;
+    gap: 10px;
+    align-items: stretch;
     z-index: 5;
-    opacity: 0.34;
-    transform: translateY(4px);
-    transition: opacity 280ms ease, transform 280ms ease;
+    /* a calm grouped card so the cluster reads as one intentional object */
+    background: var(--dock-bg, rgba(127,127,127,0.06));
+    border: 1px solid var(--chip-border);
+    border-radius: 18px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.22);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 260ms ease, transform 260ms ease;
   }
 
-  /* reveal controls on hover, keyboard focus, or when the input is active */
-  #app:hover #controls,
+  /* Revealed (active / recent interaction): JS adds #app.ui-show. We deliberately
+     do NOT key reveal off #app:hover — because #app is position:fixed; inset:0
+     it covers the whole viewport, so :hover matches whenever the cursor rests
+     anywhere on the page, which would pin the dock open and defeat the required
+     ~3s idle auto-hide on desktop. Desktop reveal is driven instead by the
+     throttled window mousemove -> revealUI() listener (which re-arms the idle
+     timer); :focus-within and #app.peek keep field-focus / the C-shortcut path
+     revealing, so no recovery route is lost. */
+  #app.ui-show #controls,
   #controls:focus-within,
   #app.peek #controls {
     opacity: 1;
-    transform: translateY(0);
+    pointer-events: auto;
+    transform: translate(-50%, 0);
+  }
+
+  /* Hard hide (Hide button / "H"): fully invisible + inert, overrides every
+     reveal trigger above so a deliberately-hidden dock cannot flicker back on
+     hover. Recovery is always available via H / any key / mousemove / tap. */
+  #app.ui-hidden #controls {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transform: translate(-50%, 8px) !important;
   }
 
   .row {
@@ -415,7 +445,7 @@
     gap: 8px;
     align-items: center;
     justify-content: center;
-    max-width: 980px;
+    max-width: 100%;
     width: 100%;
   }
 
@@ -579,7 +609,26 @@
     box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--field-focus);
   }
 
-  .spacer { flex: 0 0 auto; width: 8px; }
+  /* Spacers used to be flex push-aparts that created the awkward centre gap.
+     In the redesigned centered dock every row simply wraps and centres, so the
+     spacers collapse to a small even gap (no left/right split). */
+  .spacer { flex: 0 0 auto; width: 4px; }
+
+  /* The preset row no longer grabs all remaining width (which created the
+     mode-tabs-far-left vs presets-far-right gap). It now sits centred next to
+     the mode selector and wraps gracefully. */
+  #topRow #presetRow { flex: 0 1 auto !important; }
+
+  /* Thin divider chips between logical groups in the shared row, so the dock
+     reads as evenly-spaced groups rather than a gappy split. */
+  .grp-sep {
+    width: 1px;
+    align-self: stretch;
+    min-height: 22px;
+    background: var(--chip-border);
+    flex: 0 0 auto;
+    margin: 0 2px;
+  }
 
   /* ---- Scroll-speed control (a real range input, styled to match) ---- */
   .scrollctl {
@@ -658,7 +707,7 @@
     gap: 8px 10px;
     align-items: center;
     justify-content: center;
-    max-width: 980px;
+    max-width: 100%;
     width: 100%;
   }
   .moderow.open { display: flex; }
@@ -675,7 +724,7 @@
     gap: 10px 14px;
     align-items: center;
     justify-content: center;
-    max-width: 980px;
+    max-width: 100%;
     width: 100%;
     padding-top: 2px;
   }
@@ -917,9 +966,65 @@
     width: 100%;
   }
 
-  @media (max-width: 560px) {
-    .hint { display: none; }
-    #controls { opacity: 1; transform: none; }
+  /* The always-on keyboard hint line is now folded into the help overlay to cut
+     clutter (it is hidden by default and never re-shown inline). */
+  .hint { display: none; }
+
+  /* ---- Size control (manual scale of the auto-fit value) ---- */
+  .sizectl {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+  }
+  #sizePct {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    min-width: 34px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    user-select: none;
+  }
+  /* a little sparkle on the Mystery chip so it reads as the fun one */
+  #mysteryBtn {
+    background-image: linear-gradient(90deg, rgba(255,0,76,0.12), rgba(255,230,0,0.12), rgba(0,179,255,0.12), rgba(122,92,255,0.12));
+    border-color: transparent;
+    color: var(--ink);
+  }
+  #mysteryBtn.poof { animation: poof 460ms cubic-bezier(0.22,1,0.36,1); }
+  @keyframes poof {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.16) rotate(-3deg); }
+    100% { transform: scale(1); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #mysteryBtn.poof { animation: none; }
+  }
+
+  /* ---- MOBILE: every dock row stays inside the viewport ----
+     On narrow screens we let the dock span the full width (minus a small inset)
+     and allow long rows that cannot wrap further to scroll horizontally rather
+     than clip. The big value itself is bounded by the auto-fit (it measures the
+     stage's padded content box) plus the stage's overflow:hidden + max-width:100%
+     on #display, so it can never spill past the viewport edge. */
+  @media (max-width: 620px) {
+    #controls {
+      width: calc(100% - 16px);
+      border-radius: 14px;
+      padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+    }
+    /* Horizontal groups that must stay on one line (segmented mode selector,
+       speed clusters) scroll instead of clipping if they ever exceed width. */
+    .seg-group {
+      max-width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .seg-group::-webkit-scrollbar { display: none; }
+    .grp-sep { display: none; }
   }
 </style>
 <!-- Theme custom-property blocks are GENERATED here at runtime from the
@@ -1013,15 +1118,17 @@
         <button class="chip" id="clkSecBtn" type="button" aria-pressed="true" aria-label="Toggle seconds" title="Show or hide seconds">Seconds</button>
       </div>
 
-      <!-- ===== Shared controls row (fullscreen / scroll / rainbow / color / share / help) ===== -->
+      <!-- ===== Shared controls row (size / scroll / rainbow / mystery / color / share / fullscreen / hide / help) ===== -->
       <div class="row" id="sharedRow">
-        <button class="iconbtn" id="fsBtn" type="button" title="Fullscreen (F)" aria-label="Toggle fullscreen">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" id="fsIcon">
-            <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M16 21h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
-          </svg>
-        </button>
+        <!-- Manual size scale of the displayed value (composes on top of fit()) -->
+        <div class="sizectl" id="sizeCtl">
+          <span class="ctl-label" aria-hidden="true">Size</span>
+          <input id="sizeRange" class="rng" type="range" min="20" max="100" step="1" value="100"
+                 aria-label="Display size (percent of auto-fit)" style="width:100px;" />
+          <span id="sizePct" aria-hidden="true">100%</span>
+        </div>
 
-        <div class="spacer" aria-hidden="true"></div>
+        <div class="grp-sep" aria-hidden="true"></div>
 
         <!-- Scroll toggle + direction + speed (opt-in marquee mode) -->
         <button class="chip" id="scrollBtn" type="button" title="Scroll / ticker (S)" aria-label="Toggle scroll mode" aria-pressed="false">Scroll</button>
@@ -1038,19 +1145,38 @@
                  aria-label="Scroll speed (pixels per second)" disabled />
         </div>
 
-        <div class="spacer" aria-hidden="true"></div>
+        <div class="grp-sep" aria-hidden="true"></div>
 
         <!-- Rainbow toggle (opt-in animated colour mode) -->
         <button class="chip" id="rainbowBtn" type="button" title="Rainbow color mode (R)" aria-label="Toggle rainbow mode" aria-pressed="false">Rainbow</button>
 
+        <!-- Mystery box: a random pleasing colour treatment on each press -->
+        <button class="chip" id="mysteryBtn" type="button" title="Surprise me — a random color treatment (M)" aria-label="Apply a random color treatment">Mystery</button>
+
         <!-- Color drawer toggle (opens the DIY color space) -->
         <button class="chip" id="colorBtn" type="button" title="Color & themes (C)" aria-label="Toggle color options" aria-pressed="false" aria-expanded="false" aria-controls="diyRow">Color</button>
 
-        <div class="spacer" aria-hidden="true"></div>
+        <div class="grp-sep" aria-hidden="true"></div>
 
-        <!-- Share + QR + Help -->
+        <!-- Share + QR -->
         <button class="chip" id="shareBtn" type="button" title="Copy a shareable link to this exact view" aria-label="Copy shareable link">Share</button>
         <button class="chip" id="qrBtn" type="button" title="Show a scannable QR code of this view (Q)" aria-label="Show QR code">QR</button>
+
+        <div class="grp-sep" aria-hidden="true"></div>
+
+        <!-- Fullscreen + Hide + Help -->
+        <button class="iconbtn" id="fsBtn" type="button" title="Fullscreen (F)" aria-label="Toggle fullscreen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" id="fsIcon">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M16 21h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+          </svg>
+        </button>
+
+        <button class="iconbtn" id="hideBtn" type="button" title="Hide all controls (H)" aria-label="Hide all controls">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path d="M3 3l18 18"/>
+          </svg>
+        </button>
+
         <button class="iconbtn" id="helpBtn" type="button" title="Keyboard shortcuts & help (?)" aria-label="Show help and keyboard shortcuts">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9"/><path d="M9.2 9a2.8 2.8 0 0 1 5.4 1c0 1.9-2.8 2.5-2.8 4"/><path d="M12 17.2h.01"/>
@@ -1100,9 +1226,6 @@
         </div>
       </div>
 
-      <div class="hint" aria-hidden="true">
-        <kbd>Enter</kbd> show &nbsp;·&nbsp; <kbd>Space</kbd> start/pause &nbsp;·&nbsp; <kbd>S</kbd> scroll &nbsp;·&nbsp; <kbd>R</kbd> rainbow &nbsp;·&nbsp; <kbd>C</kbd> color &nbsp;·&nbsp; <kbd>F</kbd> fullscreen &nbsp;·&nbsp; <kbd>Q</kbd> QR &nbsp;·&nbsp; <kbd>?</kbd> help
-      </div>
     </div>
 
     <!-- ===== Help / shortcuts overlay ===== -->
@@ -1119,11 +1242,15 @@
           <dt><kbd>F</kbd></dt><dd>Toggle fullscreen</dd>
           <dt><kbd>S</kbd></dt><dd>Toggle scroll / ticker mode</dd>
           <dt><kbd>R</kbd></dt><dd>Toggle rainbow / unicorn color mode</dd>
+          <dt><kbd>M</kbd></dt><dd>Mystery — apply a random color treatment</dd>
           <dt><kbd>C</kbd></dt><dd>Toggle the color &amp; theme drawer</dd>
+          <dt><kbd>H</kbd></dt><dd>Hide / show all controls for a clean display</dd>
           <dt><kbd>Q</kbd></dt><dd>Show a scannable QR code of this view</dd>
           <dt><kbd>?</kbd></dt><dd>Toggle this help overlay</dd>
-          <dt>any key</dt><dd>Jumps focus to the value field (Text mode)</dd>
+          <dt>any key</dt><dd>Reveals the controls · jumps focus to the value field (Text mode)</dd>
+          <dt>tap stage</dt><dd>Tap/click empty screen area to show or hide the controls</dd>
         </dl>
+        <p class="sub" style="margin-top:10px;">The controls auto-hide after a few idle seconds for a clean screen. Move the mouse, tap, press any key, or hit <kbd>H</kbd> to bring them back — you are never left without a way in.</p>
 
         <h3>Modes</h3>
         <dl>
@@ -1135,7 +1262,10 @@
 
         <h3>More</h3>
         <dl>
-          <dt>Share</dt><dd>Copies a link that restores this exact view (mode, value, theme, colors, rainbow, scroll, cycle).</dd>
+          <dt>Size</dt><dd>Scale the displayed value from 20% up to the auto-fit fill (100%). Works in every mode.</dd>
+          <dt>Mystery</dt><dd>One tap (or <kbd>M</kbd>) rolls a random, pleasing color treatment — a theme, a rainbow palette, or a custom pair.</dd>
+          <dt>Hide</dt><dd>The eye button or <kbd>H</kbd> hides the dock for a clean display; controls also fade out when idle.</dd>
+          <dt>Share</dt><dd>Copies a link that restores this exact view (mode, value, theme, colors, rainbow, scroll, size, cycle).</dd>
           <dt>QR</dt><dd>Shows a scannable QR code of the share link — point a phone camera at the big screen to open this exact view. Fully offline, no QR service.</dd>
           <dt>Themes / DIY</dt><dd>10 presets plus custom text/background colors and a live rainbow palette.</dd>
           <dt>Install</dt><dd>Add to Home Screen to launch it app-like; it runs fully offline.</dd>
@@ -1228,6 +1358,11 @@
   var qrUrlEl    = document.getElementById("qrUrl");
   var qrCopyBtn  = document.getElementById("qrCopyBtn");
   var qrCloseBtn = document.getElementById("qrCloseBtn");
+  // new controls: size slider, mystery box, hide
+  var sizeRange  = document.getElementById("sizeRange");
+  var sizePct    = document.getElementById("sizePct");
+  var mysteryBtn = document.getElementById("mysteryBtn");
+  var hideBtn    = document.getElementById("hideBtn");
 
   var PLACEHOLDER = "Type anything";
 
@@ -1369,6 +1504,20 @@
   var rafId = null;          // pending fit frame
   var lastDigitLen = -1;     // tracked across time-mode ticks to avoid re-fit thrash
 
+  // ---- Manual size scale ----
+  // The auto-fit binary search finds the largest font that FILLS the box; that
+  // result is treated as 100%. sizeFactor (0.20..1.00) multiplies it on top so
+  // the user can dial the value smaller than fill in ALL modes. Every place
+  // that sets the final fitted font-size routes through setFittedFont() so the
+  // factor composes uniformly with the auto-fit (text, time and scroll modes).
+  var sizeFactor = 1;        // 1.00 == fill (default)
+  function setFittedFont(px) {
+    var f = sizeFactor;
+    if (!isFinite(f) || f <= 0) f = 1;
+    if (f > 1) f = 1;
+    display.style.fontSize = (px * f) + "px";
+  }
+
   // ---- Mode state ----
   var mode = "text";         // "text" | "clock" | "countdown" | "stopwatch"
 
@@ -1467,7 +1616,7 @@
 
     display.style.fontSize = MIN + "px";
     if (!fits(box)) {
-      display.style.fontSize = MIN + "px";
+      setFittedFont(MIN);
       return;
     }
 
@@ -1484,12 +1633,30 @@
       }
     }
 
-    display.style.fontSize = lo + "px";
+    // `lo` is the fill (100%) size; apply the manual size factor on top.
+    setFittedFont(lo);
   }
 
   function scheduleFit() {
     if (rafId !== null) return;
     rafId = requestAnimationFrame(fit);
+  }
+
+  // ---- Manual size scale control ------------------------------------------
+  // Set the size factor (20..100, as a percent) and re-fit so the change
+  // applies on top of the auto-fit in whatever mode is active. The label and
+  // the slider position are kept in sync, and the state is persisted.
+  function setSize(pct, opts) {
+    opts = opts || {};
+    var p = Math.round(parseFloat(pct));
+    if (!isFinite(p)) p = 100;
+    if (p < 20) p = 20;
+    if (p > 100) p = 100;
+    sizeFactor = p / 100;
+    if (sizeRange.value !== String(p)) sizeRange.value = String(p);
+    sizePct.textContent = p + "%";
+    scheduleFit();
+    if (!opts.silent) persist();
   }
 
   // ---- Scroll-mode height-fit + seamless CSS-keyframe marquee --------------
@@ -1530,7 +1697,7 @@
 
     display.style.fontSize = MIN + "px";
     if (seg.scrollHeight > box.h + 0.5) {
-      display.style.fontSize = MIN + "px";
+      setFittedFont(MIN);
     } else {
       var lo = MIN, hi = MAX;
       for (var i = 0; i < 22 && (hi - lo) > 0.5; i++) {
@@ -1542,7 +1709,9 @@
           hi = mid;
         }
       }
-      display.style.fontSize = lo + "px";
+      // apply the manual size factor BEFORE measuring the segment width below,
+      // so the marquee unit + needScroll decision reflect the real rendered size.
+      setFittedFont(lo);
     }
 
     var fontPx = parseFloat(getComputedStyle(display).fontSize) || 40;
@@ -2020,6 +2189,96 @@
     });
   }
 
+  // ===================================================================== //
+  //  MYSTERY BOX — a delightful random colour treatment on each press      //
+  //  ------------------------------------------------------------------- //
+  //  Rolls one of several pleasing outcomes and applies it through the     //
+  //  EXISTING setters so persistence, the contrast guard, and the share/   //
+  //  restore path all keep working unchanged:                             //
+  //    1) a random built-in theme (rainbow off)                           //
+  //    2) rainbow ON with a random flavor + random gradient palette       //
+  //    3) a random custom ink/bg pair (auto-contrast guard applies)       //
+  //  A quick "poof" pop on the button makes the reveal feel fun.          //
+  // ===================================================================== //
+  function rand(n) { return Math.floor(Math.random() * n); }
+  function pick(arr) { return arr[rand(arr.length)]; }
+
+  // A curated palette of tasteful hues to draw gradient stops + custom pairs
+  // from, so a random roll is always pleasing (never muddy/clashing).
+  var MYSTERY_HUES = [
+    "#ff004c","#ff5e3a","#ff8a00","#ffb300","#ffe600","#a8e10c",
+    "#33d35e","#0bd1a6","#00b3ff","#2d7bff","#7a5cff","#b14cff",
+    "#ff2db5","#ff6f91","#ff9ecb","#9be7ff","#c8ffe6","#fff3c4"
+  ];
+  var MYSTERY_DARK_BGS = ["#0a0a0b","#06121f","#11161d","#0c0a05","#06140f","#140a14","#0b0f14"];
+  var MYSTERY_LIGHT_BGS = ["#fbfbfa","#f4efe6","#fdf2f5","#eef4ff","#f3f6f0"];
+
+  function randomPalette() {
+    // 5 distinct hues, shuffled — closed automatically by buildGradient().
+    var pool = MYSTERY_HUES.slice();
+    for (var i = pool.length - 1; i > 0; i--) {
+      var j = rand(i + 1); var t = pool[i]; pool[i] = pool[j]; pool[j] = t;
+    }
+    return pool.slice(0, 5);
+  }
+
+  function lum(hex) {
+    var rgb = hexToRgb(hex);
+    return rgb ? luminance(rgb) : 0;
+  }
+
+  function mysteryBox() {
+    var roll = rand(3);
+
+    if (roll === 0) {
+      // (1) a random built-in theme, rainbow OFF for a clean colour swap.
+      if (rainbowOn) setRainbow(false, { silent: true });
+      var names = Object.keys(THEMES);
+      var cur = document.documentElement.getAttribute("data-theme");
+      var name = pick(names);
+      // avoid landing on the exact same theme twice in a row when possible
+      if (name === cur && names.length > 1) name = pick(names);
+      setTheme(name);
+    } else if (roll === 1) {
+      // (2) rainbow ON with a random flavor + random gradient palette + sparkle.
+      var fl = (Math.random() < 0.5) ? "unicorn" : "rainbow";
+      setFlavor(fl, { silent: true });
+      rbStops = randomPalette();
+      renderStopPickers();
+      applyRainbowStyle();
+      // sparkle only matters for unicorn; randomise it there for extra delight.
+      if (fl === "unicorn") setSparkle(Math.random() < 0.65, { silent: true });
+      setRainbow(true);
+    } else {
+      // (3) a random pleasing custom ink/bg pair. We pick a bg tone (dark or
+      //     light) then an ink that contrasts; the existing contrast guard adds
+      //     a legibility halo if the pair is still a little close.
+      if (rainbowOn) setRainbow(false, { silent: true });
+      var darkBg = Math.random() < 0.6;
+      var bg = darkBg ? pick(MYSTERY_DARK_BGS) : pick(MYSTERY_LIGHT_BGS);
+      // choose an ink hue whose luminance sits on the OTHER side of the bg.
+      var ink, tries = 0;
+      do {
+        ink = pick(MYSTERY_HUES);
+        tries++;
+      } while (tries < 8 && Math.abs(lum(ink) - lum(bg)) < 0.18);
+      // for very light backgrounds prefer a deeper ink for guaranteed contrast
+      if (!darkBg && lum(ink) > 0.55) ink = pick(["#7a1331","#1b1813","#06121f","#11161d","#7a5cff"]);
+      inkPick.value = ink;
+      bgPick.value = bg;
+      applyCustomColors();   // applies, guards contrast, and persists
+    }
+    persist();
+
+    // a quick celebratory pop on the button
+    mysteryBtn.classList.remove("poof");
+    void mysteryBtn.offsetWidth;
+    mysteryBtn.classList.add("poof");
+  }
+  mysteryBtn.addEventListener("animationend", function (e) {
+    if (e.animationName === "poof") mysteryBtn.classList.remove("poof");
+  });
+
   // ---- DIY drawer open/close -----------------------------------------------
   var diyOpen = false;
   function setDiyOpen(open) {
@@ -2463,6 +2722,8 @@
       dir: dirRTL ? 1 : 0,
       cy: cycleOn ? 1 : 0,
       cys: cycleSecs,
+      // manual size scale (percent of auto-fit fill)
+      sz: Math.round(sizeFactor * 100),
       // time-mode config
       c24: clk24 ? 1 : 0,
       csec: clkSeconds ? 1 : 0,
@@ -2484,6 +2745,7 @@
     put("rbs", st.rbs.join(",")); put("sp", st.sp);
     put("sc", st.sc); put("sps", Math.round(st.sps)); put("dir", st.dir);
     put("cy", st.cy); put("cys", st.cys);
+    put("sz", st.sz);
     put("c24", st.c24); put("csec", st.csec);
     if (st.cdd) put("cdd", st.cdd);
     if (st.cdt) put("cdt", st.cdt);
@@ -2572,6 +2834,12 @@
     }
     if (s.cy != null) setCycle(s.cy === "1" || s.cy === 1 || s.cy === true, { silent: true });
 
+    // ---- manual size scale (before mode, which triggers the first fit) ----
+    if (s.sz != null) {
+      var szv = parseFloat(s.sz);
+      if (!isNaN(szv)) setSize(szv, { silent: true });
+    }
+
     // ---- mode last (it reads the config above) ----
     if (s.mode) setMode(s.mode, { silent: true });
   }
@@ -2610,6 +2878,7 @@
       sp: data.sp != null ? data.sp : (data.sparkleOn === false ? 0 : 1),
       sc: data.sc, sps: data.sps, dir: data.dir,
       cy: data.cy, cys: data.cys,
+      sz: data.sz,
       c24: data.c24, csec: data.csec,
       cdd: data.cdd, cdt: data.cdt, cdl: data.cdl
     };
@@ -2618,6 +2887,8 @@
 
   // ---- Wire up DIY controls -----------------------------------------------
   rainbowBtn.addEventListener("click", function () { setRainbow(!rainbowOn); });
+
+  mysteryBtn.addEventListener("click", function () { mysteryBox(); });
 
   colorBtn.addEventListener("click", function () { setDiyOpen(!diyOpen); });
 
@@ -2642,6 +2913,11 @@
       display.style.setProperty("--rb-dur", rbDur + "s");
       persist();
     }
+  });
+
+  // ---- Size control --------------------------------------------------------
+  sizeRange.addEventListener("input", function () {
+    setSize(sizeRange.value);
   });
 
   // ---- Scroll controls -----------------------------------------------------
@@ -3527,6 +3803,14 @@
   }
 
   document.addEventListener("keydown", function (e) {
+    // Capture the hard-hidden state BEFORE revealUI() clears it, so the "H"
+    // toggle below can decide correctly (toggle, not always-hide).
+    var wasHidden = uiHidden;
+
+    // Any key reveals the controls (and clears a hard hide) so the user is
+    // never trapped without UI. This runs before the shortcut routing below.
+    revealUI();
+
     // Help overlay: "?" toggles, Esc closes (handled first so Esc closes help
     // before it would clear the value).
     if (e.key === "?" ) {
@@ -3598,6 +3882,19 @@
         peek();
         return;
       }
+      if (e.key === "m" || e.key === "M") {
+        e.preventDefault();
+        mysteryBox();
+        return;
+      }
+      if (e.key === "h" || e.key === "H") {
+        e.preventDefault();
+        // Toggle relative to the PRE-key state: if it was hard-hidden, the
+        // revealUI() above already showed it (so leave it shown); otherwise
+        // hide it now. This makes H a true toggle despite the global reveal.
+        if (!wasHidden) toggleHideUI(true);
+        return;
+      }
       if (e.key === "q" || e.key === "Q") {
         e.preventDefault();
         toggleQR();
@@ -3619,11 +3916,130 @@
 
   // peek(): briefly reveal the tucked controls (used by the C shortcut and
   // field focus). Kept because the keyboard handler + field focus both call it.
+  // It now also nudges the auto-hide system so a peek keeps the dock visible.
   function peek() {
     app.classList.add("peek");
     clearTimeout(peek._t);
     peek._t = setTimeout(function () { app.classList.remove("peek"); }, 1600);
+    revealUI();
   }
+
+  // ===================================================================== //
+  //  CONTROL VISIBILITY — hard Hide + idle auto-hide + tap-to-toggle       //
+  //  ------------------------------------------------------------------- //
+  //  Two layers:                                                          //
+  //   • uiHidden — an explicit hard hide (Hide button / "H"). Fully       //
+  //     invisible + inert; #app.ui-hidden overrides every reveal trigger. //
+  //   • ui-show — the "active" reveal. Added on any interaction, removed   //
+  //     after ~3s of idle for a clean screen. The permanent 0.34 ghost is  //
+  //     gone; on load the dock is visible (then auto-hides on idle).       //
+  //  Recovery is ALWAYS available (mousemove / tap / any key / H) so the   //
+  //  user is never trapped without UI. This state is intentionally NOT     //
+  //  persisted — every load starts visible.                               //
+  // ===================================================================== //
+  var uiHidden = false;            // hard hide flag (not persisted)
+  var IDLE_MS = 3000;              // auto-hide delay
+  var idleTimer = null;
+
+  // Timestamp of the most recent hidden→shown transition. The stage tap/click
+  // handler uses it to tell "this gesture just revealed the dock" apart from
+  // "the dock was already up and the user wants to hide it" — so a tap on a
+  // hidden screen reveals (and does NOT immediately re-hide on the trailing
+  // click), while a tap on a visible screen hides.
+  var lastRevealAt = 0;
+
+  // Reveal the dock and (re)arm the idle auto-hide timer. Any interaction
+  // funnels through here, which also clears a hard hide so the user always has
+  // a way back. Pass {keepHidden:true} for events that must NOT un-hide (none
+  // currently, but kept for clarity/extension).
+  function revealUI(opts) {
+    opts = opts || {};
+    var wasShown = app.classList.contains("ui-show") && !uiHidden;
+    if (uiHidden && !opts.keepHidden) {
+      uiHidden = false;
+      hideBtn.setAttribute("aria-pressed", "false");
+    }
+    if (!wasShown) lastRevealAt = Date.now();
+    app.classList.remove("ui-hidden");
+    app.classList.add("ui-show");
+    armIdle();
+  }
+
+  function armIdle() {
+    if (idleTimer !== null) clearTimeout(idleTimer);
+    idleTimer = setTimeout(function () {
+      idleTimer = null;
+      // Don't auto-hide while the user is actively in a control (typing, an open
+      // drawer/overlay, hover) — those keep the dock up via their own triggers,
+      // but we also avoid yanking it from under an active interaction here.
+      if (uiHidden) return;
+      if (helpOverlay.classList.contains("open") || qrOverlay.classList.contains("open")) {
+        armIdle(); return;
+      }
+      if (isTypingTarget(document.activeElement)) { armIdle(); return; }
+      app.classList.remove("ui-show");
+    }, IDLE_MS);
+  }
+
+  // Hard toggle (Hide button / "H"). Hidden => fully invisible + inert.
+  function toggleHideUI(force) {
+    var next = (force === undefined) ? !uiHidden : !!force;
+    uiHidden = next;
+    hideBtn.setAttribute("aria-pressed", uiHidden ? "true" : "false");
+    if (uiHidden) {
+      if (idleTimer !== null) { clearTimeout(idleTimer); idleTimer = null; }
+      // drop focus so a focused control can't keep the dock alive via :focus-within
+      if (isTypingTarget(document.activeElement) ||
+          (document.activeElement && app.contains(document.activeElement))) {
+        try { document.activeElement.blur(); } catch (e) {}
+      }
+      app.classList.remove("ui-show", "peek");
+      app.classList.add("ui-hidden");
+    } else {
+      revealUI();
+    }
+  }
+
+  hideBtn.addEventListener("click", function () { toggleHideUI(true); });
+
+  // Interaction listeners that reveal + re-arm the idle timer. mousemove uses a
+  // small throttle so it doesn't thrash the timer every pixel.
+  var lastMove = 0;
+  window.addEventListener("mousemove", function () {
+    var now = Date.now();
+    if (now - lastMove < 120) return;
+    lastMove = now;
+    revealUI();
+  }, { passive: true });
+
+  // Tap / click on the empty stage area toggles the dock (intuitive on touch +
+  // desktop). A click on an actual control must NOT toggle-hide — we only react
+  // when the target is the stage / display / sparkle itself.
+  function isStageTarget(t) {
+    return t === stage || t === display || t === document.getElementById("sparkle") ||
+           (display.contains(t) && t.tagName !== "BUTTON" && t.tagName !== "INPUT");
+  }
+  stage.addEventListener("click", function (e) {
+    if (!isStageTarget(e.target)) return;
+    // If this same gesture just revealed the dock (a tap/move on a hidden
+    // screen fired revealUI() moments ago), keep it shown — do NOT hide on the
+    // trailing click. Otherwise the dock was already up, so toggle it hidden.
+    if (Date.now() - lastRevealAt < 400) {
+      revealUI();           // just re-arm idle; leave it shown
+      return;
+    }
+    if (!uiHidden && app.classList.contains("ui-show")) {
+      toggleHideUI(true);
+    } else {
+      revealUI();
+    }
+  });
+  // Touch: reveal on any touch start so a tap brings the dock back instantly.
+  window.addEventListener("touchstart", function () { revealUI(); }, { passive: true });
+
+  // Keep the dock alive while pointer is over it or a control is focused.
+  document.getElementById("controls").addEventListener("pointerenter", function () { revealUI(); });
+  document.getElementById("controls").addEventListener("focusin", function () { revealUI(); });
 
   // ---- Visibility: pause everything when hidden, resume on return ----------
   function syncPausedClasses() {
@@ -3717,6 +4133,10 @@
   syncPausedClasses();
   // keep the address bar shareable from the first paint
   updateHash();
+
+  // Controls start VISIBLE on every load (hidden-on-load is never persisted),
+  // then auto-hide once the user goes idle. revealUI() shows + arms the timer.
+  revealUI();
 
   // start the right scheduler for the active mode
   if (mode !== "text") { tick(); ensureTicking(); }
